@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/osi-types", "crates/godot-osi"]
+# In-repo worktrees are independent checkouts; keep them out of this workspace.
+exclude = ["worktrees"]
 
 [workspace.package]
 version = "0.1.0"

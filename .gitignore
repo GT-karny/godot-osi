@@ -13,6 +13,9 @@ Cargo.lock.orig
 # Godot editor binary (downloaded separately, ~165MB; do not commit)
 /temp/Godot_v4.6.3-stable_win64.exe/
 
+# In-repo git worktrees for parallel feature branches (each is its own checkout)
+/worktrees/
+
 # OS / editor
 .DS_Store
 Thumbs.db
