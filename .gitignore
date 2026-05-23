@@ -16,6 +16,9 @@ Cargo.lock.orig
 # In-repo git worktrees for parallel feature branches (each is its own checkout)
 /worktrees/
 
+# Recorded OSI traces (test data captured at runtime; not versioned)
+/traces/
+
 # OS / editor
 .DS_Store
 Thumbs.db

@@ -12,4 +12,9 @@ crate-type = ["cdylib"]
 godot = "0.5.3"
 osi-types = { path = "../osi-types" }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "time"] }
-tonic = "0.14.6"
+# TLS features enable `ClientTlsConfig` for REQUIREMENTS §4 (TLS is non-default in tonic 0.14).
+tonic = { version = "0.14.6", features = ["tls-ring", "tls-native-roots"] }
+# `ReceiverStream` for the bundled mock gRPC server's streaming responses (§6).
+tokio-stream = "0.1"
+# Encode/decode OSI frames for `.osi` trace record/replay (osi3 types impl `prost::Message`).
+prost = "0.14.3"
