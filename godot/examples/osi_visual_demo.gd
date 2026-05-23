@@ -24,6 +24,7 @@ var mock                 # OsiMockServer when use_mock
 var _hud: Label
 
 func _ready() -> void:
+	_apply_cmdline_overrides()
 	_setup_environment()
 	_setup_hud()
 
@@ -55,6 +56,28 @@ func _process(_delta: float) -> void:
 	if _hud and viz:
 		_hud.text = "source: %s   objects: %d" % [
 			"mock" if use_mock else "external", viz.tracked_count()]
+
+## Override the exported defaults from user args passed after `--`, e.g.:
+##   Godot ... osi_visual_demo.tscn -- --external --host 127.0.0.1 --port 50051
+##   Godot ... osi_visual_demo.tscn -- --mock
+func _apply_cmdline_overrides() -> void:
+	var args := OS.get_cmdline_user_args()
+	var i := 0
+	while i < args.size():
+		match args[i]:
+			"--external":
+				use_mock = false
+			"--mock":
+				use_mock = true
+			"--host":
+				i += 1
+				if i < args.size():
+					host = args[i]
+			"--port":
+				i += 1
+				if i < args.size():
+					port = int(args[i])
+		i += 1
 
 func _setup_environment() -> void:
 	var light := DirectionalLight3D.new()
