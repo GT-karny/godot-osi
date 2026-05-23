@@ -8,6 +8,12 @@ description = "Godot 4 GDExtension: receive ASAM OSI over gRPC and expose it to 
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+# Compiles `OsiTestRig` (a debug GodotClass that builds sample OSI frames) so a
+# headless Godot project can validate the generated convert_* output. Off by
+# default to keep test scaffolding out of shipped builds. See itest/README.md.
+itest = []
+
 [dependencies]
 godot = "0.5.3"
 osi-types = { path = "../osi-types" }
