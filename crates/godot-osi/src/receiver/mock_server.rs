@@ -300,13 +300,25 @@ impl OsiMockServer {
 
         if let Some(path) = &self.ground_truth_trace {
             match super::trace::read_trace::<osi3::GroundTruth>(path) {
-                Ok(frames) => cfg.ground_truth = frames,
+                Ok(frames) => {
+                    godot_print!(
+                        "OsiMockServer: loaded {} GroundTruth frames from {path}",
+                        frames.len()
+                    );
+                    cfg.ground_truth = frames;
+                }
                 Err(e) => godot_error!("OsiMockServer: failed to read GroundTruth trace: {e}"),
             }
         }
         if let Some(path) = &self.host_vehicle_trace {
             match super::trace::read_trace::<osi3::HostVehicleData>(path) {
-                Ok(frames) => cfg.host_vehicle_data = frames,
+                Ok(frames) => {
+                    godot_print!(
+                        "OsiMockServer: loaded {} HostVehicleData frames from {path}",
+                        frames.len()
+                    );
+                    cfg.host_vehicle_data = frames;
+                }
                 Err(e) => godot_error!("OsiMockServer: failed to read HostVehicleData trace: {e}"),
             }
         }

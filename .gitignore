@@ -13,6 +13,9 @@ Cargo.lock.orig
 # Godot editor binary (downloaded separately, ~165MB; do not commit)
 /temp/Godot_v4.6.3-stable_win64.exe/
 
+# Recorded OSI traces (test data captured at runtime; not versioned)
+/traces/
+
 # OS / editor
 .DS_Store
 Thumbs.db
