@@ -16,6 +16,7 @@ use crate::converter::generated::{
     convert_ground_truth, convert_host_vehicle_data, OsiGroundTruth, OsiHostVehicleData,
 };
 use crate::frame_bus::OsiFrameBus;
+use crate::receiver::OsiReceiver;
 
 #[derive(GodotClass)]
 #[class(base=Node, init)]
@@ -38,6 +39,24 @@ impl OsiConverter {
     /// Emitted once per converted HostVehicleData frame.
     #[signal]
     fn host_vehicle_data_converted(snapshot: Gd<OsiHostVehicleData>);
+
+    /// Wire this converter to an [`OsiReceiver`] so both share one frame bus.
+    ///
+    /// Integration entry point (REQUIREMENTS / docs/ARCHITECTURE.md "統合時の配線"):
+    /// the receiver is the producer and this converter the consumer of the same
+    /// [`OsiFrameBus`]. We take an `Arc`-shared clone of the receiver's bus, so
+    /// frames the receiver stores are drained here. The receiver's bus is created
+    /// once and never reassigned (`connect_to_server` only clones it), so calling
+    /// this before or after the receiver connects — and across reconnects — keeps
+    /// both ends on the same instance.
+    #[func]
+    fn connect_source(&mut self, receiver: Option<Gd<OsiReceiver>>) {
+        let Some(receiver) = receiver else {
+            godot_error!("OsiConverter.connect_source: receiver is null; ignoring");
+            return;
+        };
+        self.set_bus(receiver.bind().frame_bus());
+    }
 
     /// Drain whatever is currently on the bus and emit conversions. Safe to
     /// call manually (e.g. from a fixed-step loop) regardless of `auto_poll`.
