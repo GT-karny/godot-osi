@@ -56,6 +56,29 @@ cargo build --release  # release: target/release/godot_osi.dll
 Initialize godot-rust (API v4.6.stable.official, runtime v4.6.3.stable.official, ...)
 ```
 
+## 受信と変換をつなぐ（統合）
+
+受信ノード `OsiReceiver` と変換ノード `OsiConverter` は内部の `OsiFrameBus`（最新フレーム
+優先・`Arc` 共有）で繋がる。GDScript からは `OsiConverter.connect_source(receiver)` を呼ぶだけで
+両者が同一バスを共有する（受信が producer、変換が consumer）。接続は `connect_to_server` の前後
+どちらで呼んでもよく、再接続後も同じバスを使い続ける。さらに `OsiMovingObjectSpawner.bind_converter(converter)`
+で変換結果の `MovingObject` を Node3D として自動生成できる。最小サンプルは
+[godot/examples/osi_pipeline.gd](godot/examples/osi_pipeline.gd)（`OsiMockServer` を使う自己完結版にもできる）。
+
+```gdscript
+var receiver := OsiReceiver.new();  add_child(receiver)
+var converter := OsiConverter.new(); add_child(converter)
+converter.connect_source(receiver)   # 同一 OsiFrameBus を共有
+receiver.connect_to_server()
+converter.ground_truth_converted.connect(func(snap): print(snap.moving_object.size()))
+```
+
+結合テスト（モックサーバー → 受信 → 変換 → シグナル）は headless で:
+
+```powershell
+pwsh godot/test/run_integration.ps1
+```
+
 ## ライセンス
 
 このリポジトリには2系統のライセンスが混在します。MPL-2.0 は**ファイル単位の弱コピーレフト**
