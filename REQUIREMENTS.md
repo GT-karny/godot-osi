@@ -96,9 +96,11 @@ OSI（右手系・Z-up・世界座標・メートル・ラジアン / ISO 8855�
 | Godot 本体 | MIT | ✅ |
 | ASAM OSI .proto 定義 | MPL-2.0（弱コピーレフト/ファイル単位） | ✅ |
 
-- **本プロジェクトの独自コード（`crates/`, `proto/service/` 等）は `MIT OR Apache-2.0` のデュアルライセンス**で配布する。
-- `proto/osi3/` の ASAM OSI 定義のみ MPL-2.0 のまま据え置き（隔離ディレクトリ）。改変配布時は当該ファイルの開示義務あり。
+- **手書きの独自コード（`proto/service/`, `crates/godot-osi` の手書き分, build.rs 等）は `MIT OR Apache-2.0` のデュアルライセンス**で配布する。
+- `proto/osi3/` の ASAM OSI 定義は MPL-2.0 のまま据え置き（隔離ディレクトリ）。改変配布時は当該ファイルの開示義務あり。
+- **`crates/osi-types` が `.proto` から生成する Rust 型は MPL `.proto` の派生物 → 実質 MPL-2.0 扱い**（デュアルの対象外）。
 - MPL-2.0 はファイル単位の弱コピーレフト。利用者のアプリコードは proprietary 可。
+- **配布バイナリ（`.dll`）は gdext + OSI 由来生成型を含む Larger Work**。再配布時は MPL 対象ファイル（gdext ソース / OSI `.proto`）の入手手段提供義務が残る（ソース同梱で充足）。
 - README に各ライセンス表記と OSI 由来ファイルの出所を明記する。
 
 ---

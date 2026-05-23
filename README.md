@@ -58,19 +58,35 @@ Initialize godot-rust (API v4.6.stable.official, runtime v4.6.3.stable.official,
 
 ## ライセンス
 
-このリポジトリの**独自コード**（`crates/`, `proto/service/`, ビルドスクリプト等）は
+このリポジトリには2系統のライセンスが混在します。MPL-2.0 は**ファイル単位の弱コピーレフト**
+（GPL のような「リンクで全体に感染」ではない）なので、両者は矛盾なく共存します。
+
+### 1. 手書きの独自コード → `MIT OR Apache-2.0`（デュアル）
+
+`proto/service/`、`crates/godot-osi/` の手書きソース、ビルドスクリプト等は
 **`MIT OR Apache-2.0`** のデュアルライセンスです。利用者は好きな方を選べます。
 - [LICENSE-MIT](LICENSE-MIT)
 - [LICENSE-APACHE](LICENSE-APACHE)
 
-ただし `proto/osi3/` に同梱している **ASAM OSI の .proto 定義は MPL-2.0**（Copyright BMW AG ほか）
-であり、その条件下で再配布しています（[proto/osi3/LICENSE](proto/osi3/LICENSE)）。
-これらを改変して再配布する場合は、当該ファイルを MPL-2.0 のまま公開する必要があります。
+### 2. MPL-2.0 由来の部分（自動的に MPL-2.0 のまま）
 
-ビルド成果物（GDExtension バイナリ）は上記 OSI 定義から生成された型を含むため、
-MPL-2.0 で保護された OSI ソース（同梱の .proto）の入手手段を伴って配布されます。
+次のものは MPL-2.0 で保護されており、上記デュアルの対象**外**です:
 
-依存クレートはいずれも商用利用可（tonic=MIT, prost=Apache-2.0, gdext=MPL-2.0）。
+- **`proto/osi3/` の ASAM OSI `.proto` 定義**（Copyright BMW AG ほか / [proto/osi3/LICENSE](proto/osi3/LICENSE)）。
+  改変して再配布する場合は当該ファイルを MPL-2.0 のまま公開する必要があります。
+- **`crates/osi-types` がビルド時に `.proto` から生成する Rust 型**。MPL の `.proto` の派生物
+  （MPL でいう Modification）に当たるため、生成物も実質 MPL-2.0 として扱うのが安全です。
+- **gdext (godot-rust)** … MPL-2.0。リンクしても自分の手書きファイルには感染しませんが、
+  バイナリには MPL コードが含まれます。
+
+### 3. 配布バイナリ（GDExtension `.dll`）の義務
+
+ビルド成果物は上記 MPL 部分（gdext + OSI 由来の生成型）を含む **"Larger Work"** です。
+バイナリを再配布する際は、**MPL-2.0 が対象とするファイル（gdext のソースと OSI `.proto`）の
+入手手段を提供する義務**が残ります。本リポジトリの配布形態（ソース同梱 + 依存はクレート経由）
+であればこの要件は満たされます。利用者自身のアプリ／ゲームコードは proprietary のままで構いません。
+
+依存クレートはいずれも商用利用可（tonic=MIT, prost=Apache-2.0, gdext=MPL-2.0, Godot 本体=MIT）。
 詳細は [REQUIREMENTS.md](REQUIREMENTS.md) の §7 を参照。
 
 ## 現状と次の作業
