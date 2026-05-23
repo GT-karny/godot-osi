@@ -1,0 +1,5 @@
+# Staged build artifact and Godot-generated state — run_itest.ps1 recreates both.
+/bin/
+/.godot/
+# Staged real trace (copied from <repo>/traces/ by run_itest.ps1).
+/gt.osi

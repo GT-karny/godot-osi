@@ -1,0 +1,10 @@
+; Minimal headless project used only to validate the generated converter.
+; See README.md. Run with run_itest.ps1.
+
+config_version=5
+
+[application]
+
+config/name="OSI Converter ITest"
+config/features=PackedStringArray("4.6")
+run/main_loop_type="SceneTree"
