@@ -291,6 +291,8 @@ version = "0.1.0"
 dependencies = [
  "godot",
  "osi-types",
+ "tokio",
+ "tonic",
 ]
 
 [[package]]

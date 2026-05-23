@@ -11,3 +11,5 @@ crate-type = ["cdylib"]
 [dependencies]
 godot = "0.5.3"
 osi-types = { path = "../osi-types" }
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "time"] }
+tonic = "0.14.6"
