@@ -1,0 +1,13 @@
+; Godot project for developing/testing the OSI wrapper GDExtension.
+; The native library is provided by addons/godot_osi/godot_osi.gdextension.
+
+config_version=5
+
+[application]
+
+config/name="Godot OSI Plugin (dev)"
+config/features=PackedStringArray("4.6", "Forward Plus")
+
+[dotnet]
+
+project/assembly_name="Godot OSI Plugin (dev)"

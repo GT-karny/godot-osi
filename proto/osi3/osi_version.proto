@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+option optimize_for = SPEED;
+
+package osi3;
+
+//
+// \brief The version of the OSI interface.
+//
+// Generated from osi_version.proto.in for ASAM OSI v3.7.0 (the upstream repo
+// produces this file from the VERSION template at build time).
+//
+message InterfaceVersion
+{
+    // Major version number.
+    //
+    optional uint32 version_major = 1 [default = 3];
+
+    // Minor version number.
+    //
+    optional uint32 version_minor = 2 [default = 7];
+
+    // Patch version number.
+    //
+    optional uint32 version_patch = 3 [default = 0];
+}

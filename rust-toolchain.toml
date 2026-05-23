@@ -1,0 +1,5 @@
+# Pin the toolchain for reproducible builds (uses the global rustup install).
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-pc-windows-msvc"]

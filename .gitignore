@@ -1,0 +1,19 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Temporary OSI source clone (protos already copied into proto/)
+/_osi_src
+
+# Godot
+.godot/
+*.import
+
+# Godot editor binary (downloaded separately, ~165MB; do not commit)
+/temp/Godot_v4.6.3-stable_win64.exe/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

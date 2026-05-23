@@ -1,0 +1,13 @@
+[package]
+name = "godot-osi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Godot 4 GDExtension: receive ASAM OSI over gRPC and expose it to Godot."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+godot = "0.5.3"
+osi-types = { path = "../osi-types" }

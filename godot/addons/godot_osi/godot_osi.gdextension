@@ -1,0 +1,10 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.2
+reloadable = true
+
+[libraries]
+; Paths are relative to this file via res://. The Godot project lives in
+; `godot/`, so `../target/...` points at the Cargo build output at the repo root.
+windows.debug.x86_64 = "res://../target/debug/godot_osi.dll"
+windows.release.x86_64 = "res://../target/release/godot_osi.dll"

@@ -1,0 +1,106 @@
+name: release
+
+# Fires when you push a version tag, e.g. `git tag v0.1.0 && git push --tags`.
+on:
+  push:
+    tags:
+      - "v*"
+  # Allows a manual run from the Actions tab (produces artifacts, no release).
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            artifact: godot_osi.dll
+            built_path: target/release/godot_osi.dll
+          - os: ubuntu-latest
+            platform: linux
+            artifact: libgodot_osi.so
+            built_path: target/release/libgodot_osi.so
+          - os: macos-latest
+            platform: macos
+            artifact: libgodot_osi.dylib
+            built_path: target/release/libgodot_osi.dylib
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # protoc is provided by the `protoc-bin-vendored` build-dependency,
+      # so no system protoc install is required.
+      - name: Build (release)
+        run: cargo build --release -p godot-osi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: ${{ matrix.built_path }}
+          if-no-files-found: error
+
+  package:
+    name: package & release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble addon
+        run: |
+          ADDON="dist/addons/godot_osi"
+          mkdir -p "$ADDON/bin/windows" "$ADDON/bin/linux" "$ADDON/bin/macos"
+          mkdir -p "$ADDON/third_party/osi3"
+
+          # Binaries
+          cp artifacts/windows/godot_osi.dll      "$ADDON/bin/windows/"
+          cp artifacts/linux/libgodot_osi.so      "$ADDON/bin/linux/"
+          cp artifacts/macos/libgodot_osi.dylib   "$ADDON/bin/macos/"
+
+          # Distribution gdextension + notices (runtime-only addon: no plugin.cfg)
+          cp packaging/godot_osi.gdextension      "$ADDON/"
+          cp packaging/THIRD_PARTY_NOTICES.md     "$ADDON/"
+
+          # Licenses (own code) + bundled MPL source (OSI .proto)
+          cp LICENSE-MIT LICENSE-APACHE           "$ADDON/"
+          cp proto/osi3/LICENSE                   "$ADDON/third_party/osi3/"
+          cp proto/osi3/*.proto                   "$ADDON/third_party/osi3/"
+
+      - name: Zip
+        run: |
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          cd dist
+          zip -r "../godot-osi-${VERSION}.zip" addons
+          cd ..
+          ls -la *.zip
+
+      - name: Upload artifact (manual runs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-osi-addon
+          path: "*.zip"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true

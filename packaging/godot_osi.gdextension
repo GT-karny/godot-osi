@@ -1,0 +1,17 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.2
+reloadable = true
+
+[libraries]
+; Distribution layout: paths are relative to THIS file, i.e. inside the
+; installed addon at res://addons/godot_osi/. CI copies the per-OS binaries
+; into bin/<platform>/ before zipping.
+windows.debug.x86_64   = "bin/windows/godot_osi.dll"
+windows.release.x86_64 = "bin/windows/godot_osi.dll"
+linux.debug.x86_64     = "bin/linux/libgodot_osi.so"
+linux.release.x86_64   = "bin/linux/libgodot_osi.so"
+macos.debug            = "bin/macos/libgodot_osi.dylib"
+macos.release          = "bin/macos/libgodot_osi.dylib"
+macos.debug.arm64      = "bin/macos/libgodot_osi.dylib"
+macos.release.arm64    = "bin/macos/libgodot_osi.dylib"
