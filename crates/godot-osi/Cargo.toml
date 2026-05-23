@@ -13,3 +13,11 @@ godot = "0.5.3"
 osi-types = { path = "../osi-types" }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "time"] }
 tonic = "0.14.6"
+
+# Used by build.rs (converter session): drive a vendored protoc to emit a
+# FileDescriptorSet, then decode it with prost-types to walk the OSI schema and
+# generate the typed Godot `Resource` classes. Added by feature/converter.
+[build-dependencies]
+protoc-bin-vendored = "3.2.0"
+prost = "0.14.3"
+prost-types = "0.14.3"

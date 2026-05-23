@@ -1,28 +1,21 @@
 //! OSI converter plugin — raw OSI -> Godot typed Resources.
 //! (owner: `feature/converter` session)
 //!
-//! Responsibilities (REQUIREMENTS.md §5):
-//! - a build-time code generator producing typed Godot `Resource` classes from
-//!   the OSI proto definitions (full set, proto field names/hierarchy preserved)
-//! - coordinate conversion OSI (right-handed, Z-up) -> Godot (left-handed,
-//!   Y-up); see REQUIREMENTS.md §3; mapping must be configurable
-//! - a Godot class `OsiConverter` (core "B"): drain the newest frame from
-//!   [`crate::frame_bus::OsiFrameBus`], convert to typed Resources, emit via
-//!   signal. It does NOT touch scene nodes.
-//! - an optional helper/sample (option "A"): id-tracked Node3D spawn/update/free
+//! Layers (REQUIREMENTS.md §3, §5):
+//! - [`generated`]: build-time generated typed Godot `Resource` classes mirroring
+//!   the OSI proto 1:1 (raw values, "A" geometry policy). Each message gets an
+//!   `OsiX` class plus a pure `convert_x(&osi3::X) -> Gd<OsiX>` free function.
+//! - [`coords`]: hand-written, configurable coordinate conversion OSI
+//!   (right-handed, Z-up) -> Godot (left-handed, Y-up). Engine-free, unit-tested.
+//! - `node` (TODO): the `OsiConverter` Godot node, core "B": drain the newest
+//!   frame from [`crate::frame_bus::OsiFrameBus`], convert, emit via signal.
+//! - `spawn_helper` (TODO): optional helper "A", id-tracked Node3D spawn/update/free.
 //!
 //! Boundary:
-//! - input:  `osi_types::osi3::GroundTruth` / `HostVehicleData` (prost types),
-//!           obtained from [`crate::frame_bus::OsiFrameBus`]
-//! - output: typed Godot `Resource` snapshots (this crate's generated classes)
-//!
-//! Keep the pure conversion logic as free functions (e.g.
-//! `convert_ground_truth(&osi3::GroundTruth) -> ...`) separate from the Godot
-//! class so it is unit-testable with hand-built synthetic messages — no
-//! receiver or running Godot required.
+//! - input:  `osi_types::osi3::GroundTruth` / `HostVehicleData` (prost types)
+//! - output: typed Godot `Resource` snapshots ([`generated`] classes)
 
 #![allow(dead_code)]
 
-// TODO(converter session): add the build.rs code generator, the generated
-// Resource classes, the coordinate-conversion module, and the `OsiConverter`
-// GodotClass here.
+pub mod coords;
+pub mod generated;

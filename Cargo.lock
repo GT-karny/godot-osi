@@ -291,6 +291,9 @@ version = "0.1.0"
 dependencies = [
  "godot",
  "osi-types",
+ "prost",
+ "prost-types",
+ "protoc-bin-vendored",
  "tokio",
  "tonic",
 ]
