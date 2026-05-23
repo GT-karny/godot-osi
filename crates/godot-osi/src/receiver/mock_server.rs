@@ -69,26 +69,61 @@ fn version() -> osi3::InterfaceVersion {
     }
 }
 
-/// A short loop of GroundTruth frames: one moving object (id 1) advancing +x.
+/// A looping demo scenario: a few typed objects (a vehicle, a second vehicle,
+/// and a pedestrian) circling the origin, each with realistic dimensions and a
+/// yaw that follows its heading. The host vehicle keeps id 1 (the existing
+/// receiver test asserts `host_vehicle_id == 1`).
 pub fn synthetic_ground_truth() -> Vec<osi3::GroundTruth> {
-    (0..120)
-        .map(|i| osi3::GroundTruth {
-            version: Some(version()),
-            timestamp: Some(timestamp(i / 20, (i % 20) as u32 * 50_000_000)),
-            host_vehicle_id: Some(osi3::Identifier { value: Some(1) }),
-            moving_object: vec![osi3::MovingObject {
-                id: Some(osi3::Identifier { value: Some(1) }),
-                base: Some(osi3::BaseMoving {
-                    position: Some(osi3::Vector3d {
-                        x: Some(i as f64 * 0.5),
-                        y: Some(0.0),
-                        z: Some(0.0),
-                    }),
-                    ..Default::default()
-                }),
+    // (id, type, radius, angular speed, phase, length, width, height)
+    // type: 2 = vehicle, 3 = pedestrian (osi3::moving_object::Type).
+    const ACTORS: [(u64, i32, f64, f64, f64, f64, f64, f64); 3] = [
+        (1, 2, 8.0, 1.0, 0.0, 4.5, 2.0, 1.5),
+        (2, 2, 12.0, -0.6, std::f64::consts::PI, 4.8, 2.1, 1.6),
+        (3, 3, 5.0, 1.6, std::f64::consts::FRAC_PI_2, 0.6, 0.6, 1.8),
+    ];
+    const FRAMES: usize = 240;
+
+    (0..FRAMES)
+        .map(|i| {
+            let t = i as f64 / 30.0; // ~30 fps worth of motion per loop
+            let moving_object = ACTORS
+                .iter()
+                .map(|&(id, ty, radius, omega, phase, length, width, height)| {
+                    let angle = omega * t + phase;
+                    osi3::MovingObject {
+                        id: Some(osi3::Identifier { value: Some(id) }),
+                        r#type: Some(ty),
+                        base: Some(osi3::BaseMoving {
+                            position: Some(osi3::Vector3d {
+                                x: Some(radius * angle.cos()),
+                                y: Some(radius * angle.sin()),
+                                z: Some(0.0),
+                            }),
+                            orientation: Some(osi3::Orientation3d {
+                                // Heading is tangent to the circle.
+                                yaw: Some(angle + std::f64::consts::FRAC_PI_2),
+                                pitch: Some(0.0),
+                                roll: Some(0.0),
+                            }),
+                            dimension: Some(osi3::Dimension3d {
+                                length: Some(length),
+                                width: Some(width),
+                                height: Some(height),
+                            }),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }
+                })
+                .collect();
+
+            osi3::GroundTruth {
+                version: Some(version()),
+                timestamp: Some(timestamp(i as i64 / 20, (i % 20) as u32 * 50_000_000)),
+                host_vehicle_id: Some(osi3::Identifier { value: Some(1) }),
+                moving_object,
                 ..Default::default()
-            }],
-            ..Default::default()
+            }
         })
         .collect()
 }

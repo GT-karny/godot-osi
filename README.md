@@ -79,6 +79,26 @@ converter.ground_truth_converted.connect(func(snap): print(snap.moving_object.si
 pwsh godot/test/run_integration.ps1
 ```
 
+## ビジュアルデモ（画面で見る）
+
+[godot/examples/osi_visual_demo.tscn](godot/examples/osi_visual_demo.tscn) を Godot で開いて実行すると、
+受信した `MovingObject` を**色付きのボックス**で可視化できる（OSI の `dimension` でサイズ、
+type で色分け＝車両:青/歩行者:緑/動物:橙、yaw で向き）。`OsiMovingObjectVisualizer` が
+変換結果から `MeshInstance3D` を id 追跡で生成・更新・破棄する。
+
+```powershell
+cargo build
+# シーンの use_mock=true（既定）なら外部サーバー不要。バンドルのモックが車両2台＋歩行者1人を
+# 円運動でストリームする。実サーバーを見るなら use_mock=false にして host/port を指定。
+& "temp\Godot_v4.6.3-stable_win64.exe\Godot_v4.6.3-stable_win64.exe" --path godot godot/examples/osi_visual_demo.tscn
+```
+
+ボックス生成の headless スモークテスト:
+
+```powershell
+& "temp\...\Godot_..._console.exe" --headless --path godot --script res://test/visual_smoke.gd
+```
+
 ## ライセンス
 
 このリポジトリには2系統のライセンスが混在します。MPL-2.0 は**ファイル単位の弱コピーレフト**

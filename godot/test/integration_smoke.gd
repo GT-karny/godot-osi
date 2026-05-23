@@ -82,7 +82,7 @@ func _process(delta: float) -> bool:
 	return false
 
 func _validate() -> bool:
-	# The synthetic mock stream is one MovingObject (id 1) advancing along +x.
+	# The synthetic mock stream carries several MovingObjects circling the origin.
 	if last_gt == null:
 		printerr("[integration] FAIL: no GroundTruth snapshot captured")
 		return false
