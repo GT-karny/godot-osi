@@ -23,6 +23,26 @@ func _initialize() -> void:
 	ok = _approx("base.dimension.width", base.dimension.width, 1.8) and ok
 	ok = _approx("base.dimension.height", base.dimension.height, 1.5) and ok
 
+	# If a real trace was staged (run_itest.ps1 copies gt.osi here), run the
+	# full convert path on production data too.
+	var trace := ProjectSettings.globalize_path("res://gt.osi")
+	if FileAccess.file_exists(trace):
+		var real = rig.convert_first_gt_frame(trace)
+		if real == null:
+			printerr("FAIL real trace: convert returned null")
+			ok = false
+		else:
+			ok = (real.moving_object.size() > 0) and ok
+			print("ok  real gt.osi frame0 moving_object count = %d" % real.moving_object.size())
+			# Nested Gd<Resource> must be reachable on real data.
+			var rmo = real.moving_object[0]
+			ok = (rmo.id != null) and ok
+			ok = (rmo.base != null and rmo.base.position != null) and ok
+			print("ok  real gt.osi frame0 obj0 id.value = %d, pos=(%f,%f,%f)" % [
+				rmo.id.value, rmo.base.position.x, rmo.base.position.y, rmo.base.position.z])
+	else:
+		print("note: res://gt.osi not staged, skipping real-trace convert")
+
 	if ok:
 		print("ITEST PASS")
 	else:

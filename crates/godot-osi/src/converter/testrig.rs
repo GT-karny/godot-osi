@@ -6,6 +6,7 @@
 
 use godot::prelude::*;
 use osi_types::osi3;
+use prost::Message;
 
 use crate::converter::generated::{convert_ground_truth, OsiGroundTruth};
 
@@ -51,5 +52,21 @@ impl OsiTestRig {
             ..Default::default()
         };
         convert_ground_truth(&gt)
+    }
+
+    /// Decode the first length-delimited `GroundTruth` frame from a real `.osi`
+    /// trace at `abs_path` and run it through the full convert path. Returns
+    /// null if the file is missing or can't be parsed (the test then skips).
+    /// Exercises the generated `Gd<Resource>` conversion on production data.
+    #[func]
+    fn convert_first_gt_frame(&self, abs_path: GString) -> Option<Gd<OsiGroundTruth>> {
+        let bytes = std::fs::read(abs_path.to_string()).ok()?;
+        if bytes.len() < 4 {
+            return None;
+        }
+        let len = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
+        let frame = bytes.get(4..4 + len)?;
+        let gt = osi3::GroundTruth::decode(frame).ok()?;
+        Some(convert_ground_truth(&gt))
     }
 }

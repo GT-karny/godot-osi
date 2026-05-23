@@ -9,16 +9,20 @@ description = "Godot 4 GDExtension: receive ASAM OSI over gRPC and expose it to 
 crate-type = ["cdylib"]
 
 [features]
-# Compiles `OsiTestRig` (a debug GodotClass that builds sample OSI frames) so a
-# headless Godot project can validate the generated convert_* output. Off by
-# default to keep test scaffolding out of shipped builds. See itest/README.md.
-itest = []
+# Compiles `OsiTestRig` (a debug GodotClass that builds sample OSI frames and
+# loads real .osi traces) so a headless Godot project can validate the generated
+# convert_* output. Off by default to keep test scaffolding out of shipped
+# builds. Pulls in prost for trace decoding. See itest/README.md.
+itest = ["dep:prost"]
 
 [dependencies]
 godot = "0.5.3"
 osi-types = { path = "../osi-types" }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "time"] }
 tonic = "0.14.6"
+# Only used by the `itest` feature (OsiTestRig trace decoding); optional so the
+# default cdylib doesn't pull it in.
+prost = { version = "0.14.3", optional = true }
 
 # Used by build.rs (converter session): drive a vendored protoc to emit a
 # FileDescriptorSet, then decode it with prost-types to walk the OSI schema and
@@ -27,3 +31,7 @@ tonic = "0.14.6"
 protoc-bin-vendored = "3.2.0"
 prost = "0.14.3"
 prost-types = "0.14.3"
+
+# Decoding real .osi traces (length-delimited prost messages) in tests.
+[dev-dependencies]
+prost = "0.14.3"

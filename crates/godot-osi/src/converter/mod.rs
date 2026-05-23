@@ -24,3 +24,6 @@ pub mod spawn_helper;
 
 #[cfg(feature = "itest")]
 pub mod testrig;
+
+#[cfg(test)]
+mod trace_tests;

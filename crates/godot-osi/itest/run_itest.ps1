@@ -32,6 +32,14 @@ Copy-Item $dll (Join-Path $proj "bin/godot_osi.dll") -Force
 New-Item -ItemType Directory -Force (Join-Path $proj ".godot") | Out-Null
 Set-Content -Path (Join-Path $proj ".godot/extension_list.cfg") -Value "res://godot_osi.gdextension"
 
+# Stage a real trace if present so test.gd can exercise the full convert path
+# on production data (optional; the test skips it when absent).
+$trace = Join-Path $repoRoot "traces/gt.osi"
+if (Test-Path $trace) {
+    Copy-Item $trace (Join-Path $proj "gt.osi") -Force
+    Write-Host "staged real trace gt.osi"
+}
+
 if (-not (Test-Path $Godot)) { throw "Godot binary not found: $Godot (pass -Godot <path>)" }
 
 Write-Host "==> running headless itest"
