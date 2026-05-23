@@ -77,6 +77,22 @@ fn main() {
     let generated = out_dir.join("osi_generated.rs");
     std::fs::write(&generated, out).expect("write generated source");
 
+    // 5. Emit a human/AI-readable schema doc for the distribution package. It is
+    //    built from the same `Registry` that drives codegen, so the doc can never
+    //    drift from the actually-generated `Osi*` classes. Written into the source
+    //    tree (gitignored) so CI can copy it into the addon; content-guarded so a
+    //    no-op rebuild doesn't touch the mtime or dirty the working tree.
+    let schema = gen_schema_md(&fds, &reg);
+    let schema_dir = repo_root.join("packaging").join("generated");
+    let schema_path = schema_dir.join("SCHEMA.md");
+    let unchanged = std::fs::read_to_string(&schema_path)
+        .map(|existing| existing == schema)
+        .unwrap_or(false);
+    if !unchanged {
+        std::fs::create_dir_all(&schema_dir).expect("create packaging/generated dir");
+        std::fs::write(&schema_path, schema).expect("write SCHEMA.md");
+    }
+
     println!("cargo:rerun-if-changed={}", proto_root.display());
     println!("cargo:rerun-if-changed=build.rs");
 }
@@ -204,6 +220,120 @@ fn gen_message(
 
     for nested in &msg.nested_type {
         gen_message(out, package, &path, nested, reg);
+    }
+}
+
+/// Build the Markdown schema reference for every generated `Osi*` class.
+///
+/// Driven by the same `Registry`/descriptor walk as the codegen above, so the
+/// listed classes and field types are exactly what ends up in the binary. Output
+/// is sorted by Godot class name for a stable, diff-friendly file.
+fn gen_schema_md(fds: &FileDescriptorSet, reg: &Registry) -> String {
+    // Collect (godot_name, proto_fq, fields) for every osi3 message, recursively.
+    let mut classes: Vec<SchemaClass> = Vec::new();
+    for file in &fds.file {
+        if file.package.as_deref() != Some("osi3") {
+            continue;
+        }
+        for msg in &file.message_type {
+            collect_schema(&mut classes, "osi3", &[], msg, reg);
+        }
+    }
+    classes.sort_by(|a, b| a.godot_name.cmp(&b.godot_name));
+
+    let mut out = String::new();
+    out.push_str(
+        "# OSI Resource Schema Reference\n\n\
+         > **Auto-generated — do not edit.** Produced by `crates/godot-osi/build.rs` from the\n\
+         > ASAM OSI v3.7.0 `.proto` schema, in lockstep with the actual generated classes.\n\n\
+         The `godot-osi` addon converts each incoming OSI frame into typed Godot `Resource`\n\
+         objects — one `Resource` class per OSI message. `OsiConverter` emits the two top-level\n\
+         snapshots, `OsiGroundTruth` and `OsiHostVehicleData`; every nested message below is\n\
+         reachable through their fields.\n\n\
+         ## Conventions\n\n\
+         - **Class naming**: proto `osi3.MovingObject` → Godot class `OsiMovingObject`; nested\n\
+         messages flatten with their parent, e.g. `osi3.MovingObject.VehicleClassification` →\n\
+         `OsiMovingObjectVehicleClassification`.\n\
+         - **Raw values**: these Resources mirror the proto values **1:1** with *no* coordinate\n\
+         transform. OSI is right-handed Z-up; convert to Godot's left-handed Y-up via the\n\
+         helper nodes (`OsiMovingObjectSpawner` / `OsiMovingObjectVisualizer`) or your own code.\n\
+         - **Field types**: nested messages are `Option<Gd<Osi…>>` (null when unset); `repeated`\n\
+         fields become packed/typed arrays. `enum` and `uint64` are exposed as `i64` (Godot has\n\
+         no native u64; the OSI \"invalid id\" sentinel `MAX(uint64)` therefore reads as `-1`).\n\
+         - Field **semantics** (units, meaning, validity rules) are documented in the bundled\n\
+         proto sources under `third_party/osi3/*.proto`.\n\n",
+    );
+    out.push_str(&format!("**{} generated classes.**\n\n---\n\n", classes.len()));
+
+    for c in &classes {
+        out.push_str(&format!("### {}\n\n", c.godot_name));
+        out.push_str(&format!("Proto: `{}`\n\n", c.proto_fq));
+        if c.fields.is_empty() {
+            out.push_str("_(no fields)_\n\n");
+            continue;
+        }
+        out.push_str("| Field | Type | Repeated |\n|---|---|---|\n");
+        for f in &c.fields {
+            out.push_str(&format!(
+                "| `{}` | {} | {} |\n",
+                f.name,
+                f.ty,
+                if f.repeated { "yes" } else { "" }
+            ));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+struct SchemaClass {
+    godot_name: String,
+    proto_fq: String,
+    fields: Vec<SchemaField>,
+}
+
+struct SchemaField {
+    name: String,
+    /// Godot `#[var]` type, code-wrapped for Markdown.
+    ty: String,
+    repeated: bool,
+}
+
+fn collect_schema(
+    classes: &mut Vec<SchemaClass>,
+    package: &str,
+    pascal_path: &[String],
+    msg: &DescriptorProto,
+    reg: &Registry,
+) {
+    let mut path = pascal_path.to_vec();
+    path.push(msg.name().to_string());
+    let fq = format!("{}.{}", package, path.join("."));
+    let info = reg.get(&fq);
+
+    let mut fields = Vec::new();
+    for field in &msg.field {
+        if field.oneof_index.is_some() {
+            continue;
+        }
+        // Code-wrapped so the `<Gd<…>>` angle brackets render literally (and are
+        // not parsed as HTML) in Markdown table cells. Same type string the
+        // `#[var]` actually gets — see `godot_field_type`.
+        fields.push(SchemaField {
+            name: godot_ident(field),
+            ty: format!("`{}`", godot_field_type(field, reg)),
+            repeated: field.label() == Label::Repeated,
+        });
+    }
+
+    classes.push(SchemaClass {
+        godot_name: info.godot_name.clone(),
+        proto_fq: fq,
+        fields,
+    });
+
+    for nested in &msg.nested_type {
+        collect_schema(classes, package, &path, nested, reg);
     }
 }
 

@@ -19,6 +19,9 @@ Cargo.lock.orig
 # Recorded OSI traces (test data captured at runtime; not versioned)
 /traces/
 
+# Auto-generated schema doc (emitted by crates/godot-osi/build.rs; CI bundles it)
+/packaging/generated/
+
 # OS / editor
 .DS_Store
 Thumbs.db

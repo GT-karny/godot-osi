@@ -99,6 +99,26 @@ cargo build
 & "temp\...\Godot_..._console.exe" --headless --path godot --script res://test/visual_smoke.gd
 ```
 
+## 配布パッケージ
+
+リリース（`v*` タグの push、または Actions の手動実行）で
+[.github/workflows/release.yml](.github/workflows/release.yml) が **2 種類の zip** を生成する:
+
+| zip | 中身 |
+|---|---|
+| `godot-osi-<ver>.zip` | ランタイム一式（サンプル無し） |
+| `godot-osi-<ver>-examples.zip` | 上記に `addons/godot_osi/examples/` を追加 |
+
+addon は **ランタイム専用**（`plugin.cfg` 無し）。展開して `res://addons/godot_osi/` に置くだけ。
+同梱されるドキュメントは利用者向けで、Godot エディタ補完に頼れない環境（Claude Code 等）でも
+API を完全に把握できることを意図している:
+
+- `README.md` … インストール + クイックスタート + 配線 + 座標系の注意（[packaging/README.md](packaging/README.md)）
+- `API.md` … 公開ノードクラスのリファレンス（[packaging/API.md](packaging/API.md)）
+- `SCHEMA.md` … 全 `Osi*` 型付き Resource とフィールドの一覧。**`build.rs` がビルド時に
+  `packaging/generated/SCHEMA.md` へ自動生成**（同じレジストリから生成するので proto と常に同期）。
+- `THIRD_PARTY_NOTICES.md` / `LICENSE-*` / `third_party/osi3/*.proto`
+
 ## ライセンス
 
 このリポジトリには2系統のライセンスが混在します。MPL-2.0 は**ファイル単位の弱コピーレフト**
