@@ -122,8 +122,53 @@ pub fn synthetic_ground_truth() -> Vec<osi3::GroundTruth> {
                 timestamp: Some(timestamp(i as i64 / 20, (i % 20) as u32 * 50_000_000)),
                 host_vehicle_id: Some(osi3::Identifier { value: Some(1) }),
                 moving_object,
+                traffic_light: synthetic_traffic_lights(t),
                 ..Default::default()
             }
+        })
+        .collect()
+}
+
+/// A small set of traffic lights for the demo, alternating like a real
+/// intersection: one "vehicle" head plus two complementary "pedestrian" heads.
+/// Each is a single lit bulb (`MODE_CONSTANT`) whose colour flips on a 6 s
+/// cycle. Positions are spread near the origin so a position-matching consumer
+/// can bind them to map signals; a consumer can also fall back to index order.
+fn synthetic_traffic_lights(t: f64) -> Vec<osi3::TrafficLight> {
+    // OSI TrafficLight.Classification enum values (osi_trafficlight.proto).
+    const COLOR_RED: i32 = 2;
+    const COLOR_GREEN: i32 = 4;
+    const MODE_CONSTANT: i32 = 3;
+
+    let phase_a = (t % 6.0) < 3.0;
+    let vehicle = if phase_a { COLOR_RED } else { COLOR_GREEN };
+    let pedestrian = if phase_a { COLOR_GREEN } else { COLOR_RED };
+
+    // (id, color, x, y, z) — z is the mounting height (OSI Z-up).
+    let lights = [
+        (101u64, vehicle, 6.0, 0.0, 4.5),
+        (102u64, pedestrian, -6.0, 2.0, 4.5),
+        (103u64, pedestrian, 0.0, -6.0, 4.5),
+    ];
+
+    lights
+        .iter()
+        .map(|&(id, color, x, y, z)| osi3::TrafficLight {
+            id: Some(osi3::Identifier { value: Some(id) }),
+            base: Some(osi3::BaseStationary {
+                position: Some(osi3::Vector3d {
+                    x: Some(x),
+                    y: Some(y),
+                    z: Some(z),
+                }),
+                ..Default::default()
+            }),
+            classification: Some(osi3::traffic_light::Classification {
+                color: Some(color),
+                mode: Some(MODE_CONSTANT),
+                ..Default::default()
+            }),
+            ..Default::default()
         })
         .collect()
 }
@@ -407,5 +452,32 @@ impl OsiMockServer {
         if let Some(handle) = self.thread.take() {
             let _ = handle.join();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn synthetic_frames_carry_cycling_traffic_lights() {
+        let frames = synthetic_ground_truth();
+        assert!(!frames.is_empty());
+        // Every frame should expose the three demo heads, each lit (not OFF).
+        for f in &frames {
+            assert_eq!(f.traffic_light.len(), 3, "expected 3 traffic lights");
+            for tl in &f.traffic_light {
+                let c = tl.classification.as_ref().expect("classification");
+                assert_eq!(c.mode, Some(3), "lit bulbs use MODE_CONSTANT");
+                assert!(matches!(c.color, Some(2) | Some(4)), "red or green");
+            }
+        }
+        // The vehicle head's colour must change over the loop (it cycles).
+        let color_of = |f: &osi3::GroundTruth| f.traffic_light[0].classification.as_ref().unwrap().color;
+        let first = color_of(&frames[0]);
+        assert!(
+            frames.iter().any(|f| color_of(f) != first),
+            "vehicle light should change colour across the loop"
+        );
     }
 }

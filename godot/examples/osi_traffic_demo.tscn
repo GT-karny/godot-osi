@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c0ositrafficdemo01"]
+
+[ext_resource type="Script" path="res://examples/osi_traffic_demo.gd" id="1_tldemo"]
+
+[node name="OsiTrafficDemo" type="Node3D"]
+script = ExtResource("1_tldemo")

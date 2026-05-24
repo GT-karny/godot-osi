@@ -13,4 +13,5 @@
 pub mod mesh;
 pub mod network;
 pub mod signal_catalog;
+pub mod traffic_light;
 pub mod visualizer;
