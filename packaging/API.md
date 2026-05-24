@@ -5,6 +5,10 @@ The node classes exposed to GDScript by the addon. For the typed snapshot
 `OsiMovingObject`, …) see [SCHEMA.md](SCHEMA.md); for wiring and coordinate-system
 notes see [README.md](README.md).
 
+The OpenDRIVE road classes (`OsiRoadNetwork`, `OsiRoadNetworkVisualizer`) are a
+separate feature documented in full — methods, returned dictionary shapes, and
+enum tables — in [ROADS.md](ROADS.md).
+
 Defaults and types below are exactly what the binary registers. `int` is Godot's
 64-bit integer; `float` properties noted as such are 32-bit (`real`).
 
@@ -133,3 +137,55 @@ animal = orange** (others gray). Applies the OSI→Godot transform like the spaw
 | `bind_converter(converter: OsiConverter)` | void | Connect to the converter's `ground_truth_converted` so the boxes update every frame. |
 | `on_ground_truth(snapshot: OsiGroundTruth)` | void | Reconcile the visible boxes against the objects in `snapshot`. (Auto-called once bound.) |
 | `tracked_count()` | int | Number of currently visible boxes. |
+
+---
+
+## OsiRoadNetwork  *(extends Resource)*
+
+Loads an OpenDRIVE (`.xodr`) map and answers geometry / lane / object / signal /
+topology / routing queries. Unrelated to the OSI streaming pipeline above. Full
+reference — every method, the returned `Dictionary` shapes, and the enum tables —
+is in **[ROADS.md](ROADS.md)**.
+
+### Methods (summary)
+| Method | Returns | Description |
+|---|---|---|
+| `load(path: String)` | bool | Load a `.xodr` (releases any previous map; singleton). |
+| `is_loaded()` | bool | Whether a network is loaded. |
+| `road_count()` / `road_id_at(index)` / `road_length(road_id)` | int / int / float | Road enumeration and length. |
+| `world_position(road_id, s, t)` / `lane_point(road_id, lane_id, s)` | Vector3 | Godot-space points along the road / lane. |
+| `drivable_lanes(road_id, s)` | PackedInt32Array | Drivable lane ids at `s`. |
+| `geometries` / `lane_osi_points` / `lane_sections` / `lanes` | Array[Dictionary] | Reference-line geometry, OSI points, lane structure. |
+| `road_marks` / `road_objects` / `tunnels` / `signals` | Array[Dictionary] | Lane markings, objects, tunnels, full signal detail. |
+| `junctions` / `junction_connections` / `junction_lane_links` / `controllers` | Array[Dictionary] | Network topology. |
+| `road_link` / `network_info` / `geo_offset` | Dictionary | Road links and network metadata. |
+| `elevations` / `super_elevations` | Array[Dictionary] | Elevation / cross-slope profiles. |
+| `lane_center_offset` / `lane_friction` / `lane_offset` / `road_speed` / `road_width` | float | Scalar queries (`NAN` on error). |
+| `road_rule` / `road_type` | int | Traffic rule / road type (`-1` on error). |
+| `shortest_path_distance(road_a, s_a, road_b, s_b)` | float | Network routing distance (`NAN` if no path). |
+
+### Constants
+`OSI_LANE = 0`, `OSI_REF_LINE = 1`, `OSI_BOUNDARY = 2` (for `lane_osi_points`);
+`LINK_PREDECESSOR = -1`, `LINK_SUCCESSOR = 1` (for `road_link`).
+
+---
+
+## OsiRoadNetworkVisualizer  *(extends Node3D)*
+
+Optional demo helper that renders an `OsiRoadNetwork` as child nodes (road
+surface + lane markings + sign markers). Builds once on demand. See
+[ROADS.md](ROADS.md#osiroadnetworkvisualizer--properties--methods).
+
+### Properties
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `scale` | float | `1.0` | Uniform scale forwarded to the coordinate mapping. |
+| `sample_step` | float | `1.0` | Longitudinal sampling stride (m) for the surface mesh. |
+| `show_signs` | bool | `true` | Drop a marker box at each road sign. |
+| `show_road_marks` | bool | `true` | Draw the OpenDRIVE lane markings. |
+
+### Methods
+| Method | Returns | Description |
+|---|---|---|
+| `build_from(network: OsiRoadNetwork)` | void | (Re)build the visible road. Frees any previous render. |
+| `has_surface()` | bool | Whether a road-surface mesh is currently shown. |

@@ -1,0 +1,3 @@
+[submodule "external/esmini"]
+	path = external/esmini
+	url = https://github.com/GT-karny/esmini.git

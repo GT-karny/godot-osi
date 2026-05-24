@@ -1,0 +1,20 @@
+[package]
+name = "esmini-rm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Safe Rust FFI wrapper over esmini's RoadManager C API (esminiRMLib) for loading and querying OpenDRIVE."
+
+[lib]
+# Engine-agnostic: no Godot dependency here. godot-osi links this as an rlib and
+# statically pulls in the esmini RoadManager C++ libs through our build.rs.
+crate-type = ["rlib"]
+
+[dependencies]
+
+# build.rs drives CMake to compile esmini's RoadManager (+CommonMini/pugixml/fmt)
+# static libs, then compiles the esminiRMLib.cpp C wrapper with `cc` and links it
+# all into this crate (and transitively into godot_osi.dll).
+[build-dependencies]
+cmake = "0.1"
+cc = "1.2"

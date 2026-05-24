@@ -13,6 +13,7 @@ pub mod frame_bus;
 
 mod converter;
 mod receiver;
+mod road;
 
 struct GodotOsiExtension;
 

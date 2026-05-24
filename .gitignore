@@ -6,12 +6,15 @@ Cargo.lock.orig
 # Temporary OSI source clone (protos already copied into proto/)
 /_osi_src
 
+# CMake build output produced inside the esmini submodule by crates/esmini-rm/build.rs
+external/esmini/build*/
+
 # Godot
 .godot/
 *.import
 
-# Godot editor binary (downloaded separately, ~165MB; do not commit)
-/temp/Godot_v4.6.3-stable_win64.exe/
+# Godot editor binary + its download archive (fetched separately, ~165MB; do not commit)
+/temp/
 
 # In-repo git worktrees for parallel feature branches (each is its own checkout)
 /worktrees/

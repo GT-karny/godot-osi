@@ -18,6 +18,9 @@ itest = []
 [dependencies]
 godot = "0.5.3"
 osi-types = { path = "../osi-types" }
+# OpenDRIVE road network via esmini's RoadManager (statically linked through
+# esmini-rm's build.rs). Powers the `road` module (OsiRoadNetwork + visualizer).
+esmini-rm = { path = "../esmini-rm" }
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "sync", "macros", "time"] }
 # TLS features enable `ClientTlsConfig` for REQUIREMENTS §4 (TLS is non-default in tonic 0.14).
 tonic = { version = "0.14.6", features = ["tls-ring", "tls-native-roots"] }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/osi-types", "crates/godot-osi"]
+members = ["crates/osi-types", "crates/godot-osi", "crates/esmini-rm"]
 # In-repo worktrees are independent checkouts; keep them out of this workspace.
 exclude = ["worktrees"]
 
