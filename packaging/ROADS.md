@@ -147,7 +147,8 @@ dictionary getters return an **empty** dictionary on failure (check with
 |---|---|---|
 | `sign_count()` | int | Number of road signs across all roads. |
 | `sign_positions()` | PackedVector3Array | Godot-space positions of all signs (quick placement). |
-| `signals()` | Array[Dictionary] | Full `<signal>` detail (osi type, type/subtype/country/value/unit/text, pose). |
+| `signals()` | Array[Dictionary] | Full `<signal>` detail (osi type, type/subtype/country/value/unit/text, pose) plus semantic classification (category, label, icon, …). |
+| `classify_signal(type, subtype)` | Dictionary | Classify a signal by `type`/`subtype` (country `"OpenDRIVE"`) without a loaded map. |
 
 ### Profiles & network metadata
 
@@ -308,6 +309,26 @@ integer fields are explained under **Enumerations** below.
 | `height`, `width`, `depth`, `length` | float | Bounding box. |
 | `value` | float | Numeric value (e.g. speed limit), if any. |
 | `name`, `type`, `subtype`, `country`, `value_str`, `unit`, `text` | String | OpenDRIVE signal strings. |
+| `matched` | bool | `true` if the signal catalogue classified this `type`/`subtype`. |
+| `category` | String | `traffic_light`, `road_marking`, or `tram_signal`. |
+| `subcategory` | String | e.g. `vehicle`, `pedestrian`, `bicycle`, `vehicle_arrow`, `tram`. |
+| `color` | String | Lit lamp colour (`red`/`yellow`/`green`), `multi` for a full head, else `none`. |
+| `arrow` | String | Arrow direction (`left`/`right`/`straight`/…) or `none`. |
+| `osi_type_name` | String | OSI main-sign type enum name (catalogue, else resolved from `osi_type`). |
+| `nr_lamps` | int | Lamp count of the signal head (0 for markings). |
+| `icon` | String | Icon key under `addons/godot_osi/icons/signals/<icon>.png`, or empty. |
+| `label_en`, `label_ja` | String | Human-readable label (English / Japanese). |
+
+The classification (`category`…`label_ja`) is derived from the bundled OpenDRIVE
+signal catalogue (`country = "OpenDRIVE"`); it does not depend on esmini locating
+its runtime traffic-sign files. Use [`classify_signal()`](#classify_signal) to
+look up the same fields without a loaded map.
+
+**`classify_signal(type: String, subtype: String)`**: classify an OpenDRIVE
+signal by `type`/`subtype` alone (country `"OpenDRIVE"`), returning the
+`matched`, `category`, `subcategory`, `color`, `arrow`, `osi_type_name`,
+`nr_lamps`, `icon`, `label_en`, `label_ja` fields above. Handy when choosing
+which signal model/icon to instance in a scene.
 
 **`elevations()` / `super_elevations()`**: `{ "s": float, "length": float, "a": float, "b": float, "c": float, "d": float }` — evaluate the cubic in local `ds = roadS - s`.
 

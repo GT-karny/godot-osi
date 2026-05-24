@@ -9,6 +9,7 @@ use esmini_rm::{OdrMap, RM_ID_UNDEFINED};
 use godot::prelude::*;
 
 use crate::converter::coords::{self, AxisMapping};
+use crate::road::signal_catalog;
 
 #[derive(GodotClass)]
 #[class(base=Resource, init)]
@@ -441,7 +442,7 @@ impl OsiRoadNetwork {
         let mut out = Array::new();
         if let Some(m) = self.map.as_ref() {
             for s in m.signals() {
-                out.push(&vdict! {
+                let mut d = vdict! {
                     "road_id" => s.road_id as i64,
                     "id" => s.id as i64,
                     "global_id" => s.global_id as i64,
@@ -461,10 +462,27 @@ impl OsiRoadNetwork {
                     "value_str" => s.value_str.as_str(),
                     "unit" => s.unit.as_str(),
                     "text" => s.text.as_str(),
-                });
+                };
+                // Merge the semantic classification (category / label / icon / …).
+                d.extend_dictionary(
+                    &classify_dict(&s.sign_type, &s.subtype, Some(s.osi_type)),
+                    true,
+                );
+                out.push(&d);
             }
         }
         out
+    }
+
+    /// Classify an OpenDRIVE signal by its `type`/`subtype` (country
+    /// `"OpenDRIVE"`), without needing a loaded map. Returns a dictionary with
+    /// `matched`, `category`, `subcategory`, `color`, `arrow`, `osi_type_name`,
+    /// `nr_lamps`, `icon`, `label_en`, `label_ja` — the same classification
+    /// fields [`Self::signals`] adds to each entry. Useful when deciding which
+    /// signal model/icon to instance in the scene.
+    #[func]
+    fn classify_signal(&self, sign_type: GString, subtype: GString) -> VarDictionary {
+        classify_dict(&sign_type.to_string(), &subtype.to_string(), None)
     }
 
     /// Elevation profile entries of `road_id` (cubic `a..d` from `s`).
@@ -573,6 +591,35 @@ impl OsiRoadNetwork {
             });
         }
         out
+    }
+}
+
+/// Build the semantic-classification fields for a signal as a dictionary.
+///
+/// `osi_type` is the raw `Signal::GetOSIType` integer when available (from a
+/// loaded map); it is used to name the OSI main-sign type when the catalogue
+/// itself has no specific OSI type (the common case for OpenDRIVE-country
+/// lights). Pass `None` when only `type`/`subtype` are known.
+fn classify_dict(sign_type: &str, subtype: &str, osi_type: Option<i32>) -> VarDictionary {
+    let c = signal_catalog::classify(sign_type, subtype);
+    let osi_name = if c.matched && c.osi_type_name != "TYPE_UNKNOWN" {
+        c.osi_type_name.clone()
+    } else if let Some(it) = osi_type {
+        signal_catalog::osi_type_name_from_int(it)
+    } else {
+        c.osi_type_name.clone()
+    };
+    vdict! {
+        "matched" => c.matched,
+        "category" => c.category.as_str(),
+        "subcategory" => c.subcategory.as_str(),
+        "color" => c.color.as_str(),
+        "arrow" => c.arrow.as_str(),
+        "osi_type_name" => osi_name.as_str(),
+        "nr_lamps" => c.nr_lamps as i64,
+        "icon" => c.icon.as_str(),
+        "label_en" => c.label_en.as_str(),
+        "label_ja" => c.label_ja.as_str(),
     }
 }
 
