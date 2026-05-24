@@ -1,0 +1,287 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0osisettingspanel1"]
+
+[ext_resource type="Script" path="res://addons/godot_osi/ui/osi_settings_panel.gd" id="1_panel"]
+
+[node name="OsiSettingsPanel" type="PanelContainer"]
+offset_right = 540.0
+offset_bottom = 560.0
+script = ExtResource("1_panel")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Root" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="Margin/Root"]
+layout_mode = 2
+text = "OSI Settings"
+
+[node name="ConnPresetRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/ConnPresetRow"]
+layout_mode = 2
+text = "Conn preset"
+
+[node name="ConnPreset" type="OptionButton" parent="Margin/Root/ConnPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ConnName" type="LineEdit" parent="Margin/Root/ConnPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "new name…"
+
+[node name="ConnSaveNew" type="Button" parent="Margin/Root/ConnPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save as new"
+
+[node name="ConnSave" type="Button" parent="Margin/Root/ConnPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save"
+
+[node name="ConnDelete" type="Button" parent="Margin/Root/ConnPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Delete"
+
+[node name="ConnSep" type="HSeparator" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="ConnHeader" type="Label" parent="Margin/Root"]
+layout_mode = 2
+text = "Connection"
+
+[node name="SourceRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/SourceRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Source"
+
+[node name="Source" type="OptionButton" parent="Margin/Root/SourceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+selected = 0
+item_count = 2
+popup/item_0/text = "Mock"
+popup/item_0/id = 0
+popup/item_1/text = "External"
+popup/item_1/id = 1
+
+[node name="AddressRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/AddressRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Address"
+
+[node name="Address" type="LineEdit" parent="Margin/Root/AddressRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "127.0.0.1"
+
+[node name="PortRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/PortRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Port"
+
+[node name="Port" type="SpinBox" parent="Margin/Root/PortRow"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 65535.0
+value = 50051.0
+rounded = true
+
+[node name="TlsRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/TlsRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Use TLS"
+
+[node name="UseTls" type="CheckBox" parent="Margin/Root/TlsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ReconnectRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/ReconnectRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Reconnect"
+
+[node name="Reconnect" type="CheckBox" parent="Margin/Root/ReconnectRow"]
+unique_name_in_owner = true
+layout_mode = 2
+button_pressed = true
+
+[node name="ReconnectDelayRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/ReconnectDelayRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Reconnect delay (ms)"
+
+[node name="ReconnectDelay" type="SpinBox" parent="Margin/Root/ReconnectDelayRow"]
+unique_name_in_owner = true
+layout_mode = 2
+max_value = 60000.0
+step = 100.0
+value = 1000.0
+rounded = true
+
+[node name="MockPeriodRow" type="HBoxContainer" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/MockPeriodRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Mock period (ms)"
+
+[node name="MockPeriod" type="SpinBox" parent="Margin/Root/MockPeriodRow"]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 1.0
+max_value = 1000.0
+value = 50.0
+rounded = true
+
+[node name="ConnButtons" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Connect" type="Button" parent="Margin/Root/ConnButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Connect"
+
+[node name="Disconnect" type="Button" parent="Margin/Root/ConnButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Disconnect"
+
+[node name="StatusRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/StatusRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+text = "Status"
+
+[node name="Status" type="Label" parent="Margin/Root/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Disconnected"
+
+[node name="RoadSep" type="HSeparator" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="RoadPresetRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Margin/Root/RoadPresetRow"]
+layout_mode = 2
+text = "Road preset"
+
+[node name="RoadPreset" type="OptionButton" parent="Margin/Root/RoadPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RoadName" type="LineEdit" parent="Margin/Root/RoadPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "new name…"
+
+[node name="RoadSaveNew" type="Button" parent="Margin/Root/RoadPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save as new"
+
+[node name="RoadSave" type="Button" parent="Margin/Root/RoadPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save"
+
+[node name="RoadDelete" type="Button" parent="Margin/Root/RoadPresetRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Delete"
+
+[node name="RoadHeader" type="Label" parent="Margin/Root"]
+layout_mode = 2
+text = "Road (OpenDRIVE .xodr)"
+
+[node name="RoadPathRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="RoadPath" type="LineEdit" parent="Margin/Root/RoadPathRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "path to .xodr"
+
+[node name="Browse" type="Button" parent="Margin/Root/RoadPathRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Browse…"
+
+[node name="RoadButtons" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="LoadRoad" type="Button" parent="Margin/Root/RoadButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Load"
+
+[node name="RoadResultRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="RoadResult" type="Label" parent="Margin/Root/RoadResultRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+
+[node name="PathSep" type="HSeparator" parent="Margin/Root"]
+layout_mode = 2
+
+[node name="ConfigPath" type="Label" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "presets: —"
+autowrap_mode = 3
+
+[node name="FileDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Open an OpenDRIVE map"
+initial_position = 1
+size = Vector2i(700, 480)
+ok_button_text = "Open"
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.xodr ; OpenDRIVE")
+use_native_dialog = true
