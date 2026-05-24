@@ -27,8 +27,28 @@ The binaries are built with the gdext bindings.
 ## prost — Apache-2.0
 - Source: https://github.com/tokio-rs/prost
 
+## esmini (RoadManager) — MPL-2.0
+The binaries statically link esmini's RoadManager and CommonMini modules, used
+to parse OpenDRIVE (`.xodr`) files and answer road-geometry queries for the
+`OsiRoadNetwork` / `OsiRoadNetworkVisualizer` classes.
+
+- Source: https://github.com/GT-karny/esmini
+
+## pugixml — MIT
+XML parser pulled in by esmini's RoadManager to read `.xodr` files.
+Copyright (C) 2006-2018 Arseny Kapoulkine.
+
+- Source: https://github.com/zeux/pugixml
+
+## fmt — MIT
+Formatting library pulled in by esmini's CommonMini.
+Copyright (c) 2012-present Victor Zverovich and {fmt} contributors.
+
+- Source: https://github.com/fmtlib/fmt
+
 ---
 
 No MPL-covered source file has been modified in this distribution. The MPL
 requires only that the corresponding Source Code Form remain available under
-the MPL; the `.proto` files under `third_party/osi3/` satisfy that requirement.
+the MPL; the `.proto` files under `third_party/osi3/` (ASAM OSI) and the public
+esmini source repository linked above satisfy that requirement.

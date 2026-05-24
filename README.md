@@ -20,7 +20,10 @@ Godot-OSI-plugin/
 │  └─ service/               # gRPC サービス定義 (StreamGroundTruth / StreamHostVehicleData)
 ├─ crates/
 │  ├─ osi-types/             # proto -> Rust 型 + tonic クライアント/サーバー stub (build.rs で生成)
-│  └─ godot-osi/             # GDExtension 本体 (cdylib)。受信プラグイン + 変換プラグイン
+│  ├─ esmini-rm/             # esmini RoadManager の安全な Rust FFI ラッパ (build.rs で CMake ビルド・静的リンク)
+│  └─ godot-osi/             # GDExtension 本体 (cdylib)。受信 + 変換 + OpenDRIVE 道路 (src/road/)
+├─ external/
+│  └─ esmini/                # submodule: OpenDRIVE 解析用 RoadManager のソース (静的リンク)
 ├─ godot/                    # 開発/テスト用 Godot プロジェクト
 │  └─ addons/godot_osi/
 │     └─ godot_osi.gdextension
@@ -31,12 +34,15 @@ Godot-OSI-plugin/
 
 - Rust 1.94.1（`rust-toolchain.toml` で固定。インストール済みの rustup を利用）
 - MSVC ツールチェーン（`x86_64-pc-windows-msvc`）
+- **CMake + C++ コンパイラ**（OpenDRIVE 道路機能で esmini RoadManager をソースからビルドするため。`esmini-rm/build.rs` が CMake を呼ぶ）
+- **esmini submodule の初期化**（`git submodule update --init external/esmini`。未初期化だと `esmini-rm/build.rs` が panic する。esmini の `externals/fmt` は build.rs が自動で shallow 初期化する）
 - protoc は不要。ビルド時に `protoc-bin-vendored` が同梱バイナリを使用
 - Godot 4.6.x（本リポジトリでは `temp/Godot_v4.6.3-stable_win64.exe/` を使用）
 
 ## ビルド
 
 ```powershell
+git submodule update --init external/esmini   # 初回のみ（OpenDRIVE 道路機能に必須）
 cargo build            # debug: target/debug/godot_osi.dll
 cargo build --release  # release: target/release/godot_osi.dll
 ```

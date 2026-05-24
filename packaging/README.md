@@ -168,6 +168,7 @@ instead of synthesizing data.
 ## License
 
 This addon's own code is `MIT OR Apache-2.0` (see `LICENSE-MIT` / `LICENSE-APACHE`).
-The binaries also incorporate MPL-2.0 components (the ASAM OSI generated types and
-the godot-rust bindings); their source/notices are in `THIRD_PARTY_NOTICES.md` and
-`third_party/osi3/`. Your own game/application code is unaffected.
+The binaries also incorporate MPL-2.0 components (the ASAM OSI generated types,
+the godot-rust bindings, and esmini's RoadManager used for OpenDRIVE) plus MIT
+components (pugixml, fmt); their source/notices are in `THIRD_PARTY_NOTICES.md`
+and `third_party/osi3/`. Your own game/application code is unaffected.

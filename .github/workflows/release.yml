@@ -32,18 +32,45 @@ jobs:
             artifact: libgodot_osi.dylib
             built_path: target/release/libgodot_osi.dylib
     steps:
+      # submodules: true (not recursive) fetches external/esmini, whose
+      # RoadManager is statically linked into the extension. esmini's own
+      # externals/fmt is initialized (shallow) by esmini-rm/build.rs at build
+      # time, and we skip its large test-scenario submodules.
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      # esmini's RoadManager is built from source via CMake + a C++ compiler.
+      # All three GitHub runners ship CMake and a C++ toolchain, so no extra
+      # install is needed here.
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
       # protoc is provided by the `protoc-bin-vendored` build-dependency,
       # so no system protoc install is required.
+      # Windows/Linux: single-arch build into target/release/.
       - name: Build (release)
+        if: matrix.platform != 'macos'
         run: cargo build --release -p godot-osi
+
+      # macOS: build both arches and lipo them into a universal dylib so the
+      # x86_64 + arm64 entries in godot_osi.gdextension are both honored.
+      - name: Build universal (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+          cargo build --release -p godot-osi --target x86_64-apple-darwin
+          cargo build --release -p godot-osi --target aarch64-apple-darwin
+          mkdir -p target/release
+          lipo -create \
+            target/x86_64-apple-darwin/release/libgodot_osi.dylib \
+            target/aarch64-apple-darwin/release/libgodot_osi.dylib \
+            -output target/release/libgodot_osi.dylib
+          lipo -info target/release/libgodot_osi.dylib
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
