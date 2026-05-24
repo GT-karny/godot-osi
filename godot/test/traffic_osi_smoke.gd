@@ -15,6 +15,7 @@ extends SceneTree
 const ROAD := "res://examples/roads/fabriksgatan_traffic_lights.xodr"
 const OSI_COLOR := {2: "red", 3: "yellow", 4: "green"}
 const OSI_MODE_OFF := 2
+const TL_ID_PREFIX := "traffic_light_id:"
 
 var tl: OsiTrafficLightVisualizer
 var _ids: PackedInt64Array
@@ -55,60 +56,79 @@ func _initialize() -> void:
 	converter.ground_truth_converted.connect(_on_gt)
 	receiver.connect_to_server()
 
-	# Poll until a head lights up (frames arrive on a background thread), and
-	# capture the colour sequence on the first head to confirm it changes.
-	var seen := {}
-	var lit_seen := false
-	for _i in range(120):                # up to ~6 s at 50 ms steps
+	# The 3-lamp head is the vehicle signal (id 1) — the only one that ever gets
+	# yellow. Seeing yellow there proves colours are routed by signal id, not by
+	# position or order.
+	var vehicle_id := _head_with_lamps(3)
+	var ped_id := _head_with_lamps(2)
+	if vehicle_id < 0 or ped_id < 0:
+		push_error("[tl-osi] expected a 3-lamp and a 2-lamp head")
+		_finish(false)
+		return
+
+	# Poll while frames arrive (background thread) and record colours seen.
+	var veh_seen := {}
+	var ped_lit := false
+	for _i in range(160):                # up to ~8 s at 50 ms steps (full cycle)
 		OS.delay_msec(50)
 		converter.poll()
-		if _ids.size() > 0:
-			for c in ["red", "yellow", "green"]:
-				if _head_color(_ids[0]) == c:
-					seen[c] = true
-		if not lit_seen and _any_head_lit():
-			lit_seen = true
-		# Stop early once we have a lit head and have seen >= 2 distinct colours.
-		if lit_seen and seen.size() >= 2:
+		var vc := _head_color(vehicle_id)
+		if vc != "":
+			veh_seen[vc] = true
+		if tl.is_lamp_on(ped_id, 0) or (tl.lamp_count(ped_id) > 1 and tl.is_lamp_on(ped_id, 1)):
+			ped_lit = true
+		if veh_seen.has("yellow") and veh_seen.has("green") and ped_lit:
 			break
 
 	var ok := true
 	if _frames == 0:
 		push_error("[tl-osi] no GroundTruth frames received from mock")
 		ok = false
-	if not lit_seen:
-		push_error("[tl-osi] no head ever lit from the OSI stream")
+	if not veh_seen.has("yellow"):
+		push_error("[tl-osi] vehicle head never showed yellow (id routing broken?)")
 		ok = false
-	if seen.size() < 2:
-		push_error("[tl-osi] head colour did not change (saw %s)" % str(seen.keys()))
+	if veh_seen.size() < 2:
+		push_error("[tl-osi] vehicle head colour did not change (saw %s)" % str(veh_seen.keys()))
 		ok = false
-	print("[tl-osi] frames=%d colours-seen=%s" % [_frames, str(seen.keys())])
+	if not ped_lit:
+		push_error("[tl-osi] pedestrian head never lit")
+		ok = false
+	print("[tl-osi] frames=%d vehicle-colours=%s ped_lit=%s" % [_frames, str(veh_seen.keys()), str(ped_lit)])
 
 	receiver.disconnect_from_server()
 	mock.stop()
 	_finish(ok)
 
-# Bridge: apply received traffic-light states to the heads (index-mapped, since
-# the mock's lights are not tied to this map's signal positions).
+# Bridge: route each lit OSI bulb to its head by the OpenDRIVE signal id carried
+# in source_reference ("traffic_light_id:<N>") — no position/index guessing.
 func _on_gt(snapshot) -> void:
 	_frames += 1
 	for id in _ids:
 		tl.all_off(id)
-	var lights = snapshot.traffic_light
-	for i in range(lights.size()):
-		var cls = lights[i].classification
+	for light in snapshot.traffic_light:
+		var cls = light.classification
 		if cls == null or cls.mode == OSI_MODE_OFF:
 			continue
 		var color: String = OSI_COLOR.get(cls.color, "")
-		if color != "" and i < _ids.size():
-			tl.set_color_state(_ids[i], color)
+		if color == "":
+			continue
+		var sig := _signal_id_from_ref(light)
+		if sig >= 0:
+			tl.set_color_state_by_signal_id(sig, color)
 
-func _any_head_lit() -> bool:
+func _signal_id_from_ref(light) -> int:
+	for ref in light.source_reference:
+		for ident in ref.identifier:
+			if (ident as String).begins_with(TL_ID_PREFIX):
+				return int((ident as String).substr(TL_ID_PREFIX.length()))
+	return -1
+
+# First built head with exactly `n` lamps, or -1.
+func _head_with_lamps(n: int) -> int:
 	for id in _ids:
-		for li in range(tl.lamp_count(id)):
-			if tl.is_lamp_on(id, li):
-				return true
-	return false
+		if tl.lamp_count(id) == n:
+			return id
+	return -1
 
 # Name of the lit colour on a head (assumes the standard top-down lamp order).
 func _head_color(id: int) -> String:

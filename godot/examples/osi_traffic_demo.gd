@@ -28,6 +28,10 @@ extends Node3D
 ## OpenDRIVE intersection to render. Its dynamic signals become 3D lamp heads.
 @export var road_file: String = "res://examples/roads/fabriksgatan_traffic_lights.xodr"
 
+## Lay vehicle (3-aspect) heads out horizontally instead of vertically
+## (Japanese-style). Toggle at runtime with `-- --horizontal`.
+@export var horizontal_lights: bool = false
+
 ## Free-fly camera (UE-style): hold right mouse to look, WASD to move,
 ## E up / Q down, hold Shift to move faster. Takes priority over follow_host.
 @export var free_camera: bool = true
@@ -45,8 +49,9 @@ extends Node3D
 # OSI TrafficLight.Classification enum values (osi_trafficlight.proto).
 const OSI_COLOR := {2: "red", 3: "yellow", 4: "green"}
 const OSI_MODE_OFF := 2
-# How close (m) an OSI light must be to a head to bind by position.
-const LIGHT_MATCH_DIST := 4.0
+# esmini's OSIReporter tags each TrafficLight's source_reference identifier with
+# this prefix + the OpenDRIVE signal id; that's how we bind it to a head.
+const TL_ID_PREFIX := "traffic_light_id:"
 
 var receiver: OsiReceiver
 var converter: OsiConverter
@@ -104,33 +109,38 @@ func _on_ground_truth(snapshot) -> void:
 		_host_id = snapshot.host_vehicle_id.value
 	_drive_lights(snapshot)
 
-## Map the GroundTruth's traffic_light[] onto the rendered heads. Each lit OSI
-## bulb (mode != OFF) binds to the nearest head by world position; if no head is
-## close (e.g. the mock's objects are not tied to this map), fall back to index.
+## Map the GroundTruth's traffic_light[] onto the rendered heads by OpenDRIVE
+## signal id. esmini emits one TrafficLight per bulb, so we clear every head,
+## then for each lit bulb (mode != OFF) route its colour to the head whose
+## signal id matches source_reference's "traffic_light_id:<N>". No position or
+## index guessing.
 func _drive_lights(snapshot) -> void:
 	if tl_viz == null:
 		return
-	var ids := tl_viz.global_ids()
-	for id in ids:
+	for id in tl_viz.global_ids():
 		tl_viz.all_off(id)
 
-	var lights = snapshot.traffic_light
 	_lit_count = 0
-	for i in range(lights.size()):
-		var tl = lights[i]
+	for tl in snapshot.traffic_light:
 		var cls = tl.classification
 		if cls == null or cls.mode == OSI_MODE_OFF:
 			continue
 		var color: String = OSI_COLOR.get(cls.color, "")
 		if color == "":
 			continue
-		var matched := -1
-		if tl.base != null and tl.base.position != null:
-			var p = tl.base.position
-			matched = tl_viz.set_state_at_osi(p.x, p.y, p.z, color, LIGHT_MATCH_DIST)
-		if matched < 0 and i < ids.size():
-			tl_viz.set_color_state(ids[i], color)
-		_lit_count += 1
+		var sig := _signal_id_from_ref(tl)
+		if sig >= 0 and tl_viz.set_color_state_by_signal_id(sig, color):
+			_lit_count += 1
+
+## Extract the OpenDRIVE signal id from an OSI TrafficLight's source_reference
+## ("traffic_light_id:<N>"), or -1 if absent. Scans identifiers directly so it
+## does not depend on the generated `type` property name.
+func _signal_id_from_ref(tl) -> int:
+	for ref in tl.source_reference:
+		for ident in ref.identifier:
+			if (ident as String).begins_with(TL_ID_PREFIX):
+				return int((ident as String).substr(TL_ID_PREFIX.length()))
+	return -1
 
 func _process(delta: float) -> void:
 	if free_camera:
@@ -203,6 +213,7 @@ func _setup_road() -> bool:
 	road_viz.build_from(road_net)
 
 	tl_viz = OsiTrafficLightVisualizer.new()
+	tl_viz.horizontal = horizontal_lights
 	add_child(tl_viz)
 	tl_viz.build_from(road_net)
 
@@ -223,6 +234,8 @@ func _apply_cmdline_overrides() -> void:
 				follow_host = true
 			"--no-follow":
 				follow_host = false
+			"--horizontal":
+				horizontal_lights = true
 			"--host":
 				i += 1
 				if i < args.size():

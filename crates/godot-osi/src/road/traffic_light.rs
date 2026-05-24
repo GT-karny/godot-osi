@@ -39,8 +39,6 @@ struct Head {
     lamps: Vec<Gd<MeshInstance3D>>,
     /// Lamp colour names parallel to `lamps` (see [`lamp_colors_for`]).
     colors: Vec<String>,
-    /// World position (Godot space), for matching incoming OSI traffic lights.
-    pos: Vector3,
 }
 
 #[derive(GodotClass)]
@@ -66,10 +64,20 @@ pub struct OsiTrafficLightVisualizer {
     #[var]
     #[init(val = true)]
     flip_facing: bool,
+    /// Lay multi-lamp **vehicle** heads out horizontally (a row of lamps) instead
+    /// of the default vertical stack — e.g. the common Japanese arrangement.
+    /// Pedestrian/bicycle heads stay vertical regardless.
+    #[var]
+    #[init(val = false)]
+    horizontal: bool,
 
-    /// Heads keyed by OpenDRIVE `global_id` (unique per signal). Not a `#[var]`:
-    /// `Gd` handles cannot be exported to the editor.
+    /// Heads keyed by OpenDRIVE `global_id` (`GetGlobalId`, unique per signal).
+    /// Not a `#[var]`: `Gd` handles cannot be exported to the editor.
     heads: HashMap<i64, Head>,
+    /// Maps a signal's per-road `id` (`GetId`) to its `global_id`. esmini's OSI
+    /// `source_reference` carries `GetId`, so this routes an incoming OSI
+    /// traffic light to its head (see [`Self::set_color_state_by_signal_id`]).
+    sig_index: HashMap<i64, i64>,
     /// Icon stem -> decoded texture, reused across rebuilds to avoid re-decoding.
     tex_cache: HashMap<String, Gd<ImageTexture>>,
     /// Parent of all head sub-trees; freed and rebuilt on each `build_from`.
@@ -89,6 +97,7 @@ impl OsiTrafficLightVisualizer {
             n.queue_free();
         }
         self.heads.clear();
+        self.sig_index.clear();
         self.demo_phase = 0;
 
         let mapping = AxisMapping {
@@ -128,6 +137,7 @@ impl OsiTrafficLightVisualizer {
                     );
                     Some(PlannedHead {
                         global_id: s.global_id as i64,
+                        signal_id: s.id as i64,
                         pos,
                         basis,
                         orientation: s.orientation,
@@ -146,21 +156,33 @@ impl OsiTrafficLightVisualizer {
         let size_scale = self.size_scale;
         let emission = self.emission_energy;
         let flip_facing = self.flip_facing;
+        let horizontal = self.horizontal;
 
         let mut root = Node3D::new_alloc();
         root.set_name("TrafficLights");
         let mut heads_map: HashMap<i64, Head> = HashMap::new();
+        let mut sig_index: HashMap<i64, i64> = HashMap::new();
 
         for ph in &collected {
             let tex = self.texture_for(&ph.icon);
-            let (head_node, head) = build_head(ph, tex, size_scale, emission, flip_facing);
+            let (head_node, head) = build_head(ph, tex, size_scale, emission, flip_facing, horizontal);
             root.add_child(&head_node);
             heads_map.insert(ph.global_id, head);
+            if let Some(prev) = sig_index.insert(ph.signal_id, ph.global_id) {
+                godot_warn!(
+                    "[OsiTrafficLightVisualizer] duplicate signal id {} (global {} and {}); \
+                     OSI routing keeps the latter",
+                    ph.signal_id,
+                    prev,
+                    ph.global_id
+                );
+            }
         }
 
         self.base_mut().add_child(&root);
         self.root = Some(root);
         self.heads = heads_map;
+        self.sig_index = sig_index;
     }
 
     /// Turn a single lamp (by `lamp_index`, 0 = top) on or off.
@@ -228,37 +250,20 @@ impl OsiTrafficLightVisualizer {
         ids.into_iter().collect()
     }
 
-    /// Drive a head from an OSI traffic-light update given in the OSI world frame
-    /// (right-handed, Z-up). The position is converted to Godot space with this
-    /// node's `scale` and matched to the nearest head within `max_dist` meters;
-    /// that head is then set to `color` (`"red"`/`"yellow"`/`"green"`/`"off"`).
-    /// Returns the matched `global_id`, or `-1` if no head was close enough.
+    /// Route an OSI traffic-light update to its head by the OpenDRIVE signal id
+    /// (`GetId`) that esmini puts in `source_reference` (`"traffic_light_id:<N>"`).
+    /// Lights only `color` (`"red"`/`"yellow"`/`"green"`; anything else turns the
+    /// head off). Returns `true` if a head with that signal id exists.
     ///
-    /// This keeps the OSI->Godot coordinate transform on the Rust side so a
-    /// GDScript bridge can stay a one-liner per received `TrafficLight`.
+    /// This is the deterministic, position-free binding between an OSI
+    /// `TrafficLight` and a rendered head.
     #[func]
-    fn set_state_at_osi(
-        &mut self,
-        osi_x: f64,
-        osi_y: f64,
-        osi_z: f64,
-        color: GString,
-        max_dist: f64,
-    ) -> i64 {
-        let mapping = AxisMapping {
-            scale: self.scale,
-            ..Default::default()
+    fn set_color_state_by_signal_id(&mut self, signal_id: i64, color: GString) -> bool {
+        let Some(&global_id) = self.sig_index.get(&signal_id) else {
+            return false;
         };
-        let target = to_godot([osi_x, osi_y, osi_z], &mapping);
-        let positions: Vec<(i64, Vector3)> =
-            self.heads.iter().map(|(id, h)| (*id, h.pos)).collect();
-        match nearest_head_id(&positions, target, max_dist as real) {
-            Some(id) => {
-                self.set_color_state(id, color);
-                id
-            }
-            None => -1,
-        }
+        self.set_color_state(global_id, color);
+        true
     }
 
     /// Number of lamps in a head (0 if unknown).
@@ -313,6 +318,8 @@ impl OsiTrafficLightVisualizer {
 /// Plain (no-`Gd`) signal data gathered while the network is borrowed.
 struct PlannedHead {
     global_id: i64,
+    /// Per-road signal id (`GetId`); the key esmini's OSI `source_reference` uses.
+    signal_id: i64,
     pos: Vector3,
     basis: Basis,
     orientation: i32,
@@ -334,21 +341,40 @@ fn build_head(
     size_scale: real,
     emission: real,
     flip_facing: bool,
+    horizontal: bool,
 ) -> (Gd<Node3D>, Head) {
     let s = size_scale as f64;
+    let n = ph.nr_lamps;
+    // Horizontal layout is for multi-lamp vehicle heads only; pedestrian and
+    // bicycle signals stay vertical (matching real intersections).
+    let lay_horizontal =
+        horizontal && n >= 2 && matches!(ph.subcategory.as_str(), "vehicle" | "vehicle_arrow");
+
     // Forward = local +X, up = +Y, lateral = Z (see module docs).
     let box_d = (if ph.depth > 0.02 { ph.depth } else { 0.10 }) * s;
-    let box_h = (if ph.height > 0.05 {
-        ph.height
-    } else {
-        0.40 * ph.nr_lamps as f64
-    }) * s;
-    let box_w = (if ph.width > 0.05 { ph.width } else { 0.40 }) * s;
-
-    let lamp_h = box_h / ph.nr_lamps as f64;
-    let lamp_half_w = (box_w * 0.90) * 0.5;
-    let lamp_half_h = (lamp_h * 0.90) * 0.5;
+    // Length along the lamp axis (the vertical board height by default).
+    let span = (if ph.height > 0.05 { ph.height } else { 0.40 * n as f64 }) * s;
+    let board_w = (if ph.width > 0.05 { ph.width } else { 0.40 }) * s;
+    let pitch = span / n as f64; // per-lamp spacing along the lamp axis
     let front_x = box_d * 0.5 + 0.005;
+
+    // Housing extents and per-lamp quad half-sizes per layout.
+    //   Vertical:   lamps along Y; housing span(Y) x board_w(Z).
+    //   Horizontal: lamps along Z in square `pitch` cells; row length = span.
+    let (box_size, lamp_half_y, lamp_half_z) = if lay_horizontal {
+        let half = (pitch * 0.90) * 0.5;
+        (
+            Vector3::new(box_d as real, pitch as real, span as real),
+            half,
+            half,
+        )
+    } else {
+        (
+            Vector3::new(box_d as real, span as real, board_w as real),
+            (pitch * 0.90) * 0.5,
+            (board_w * 0.90) * 0.5,
+        )
+    };
 
     // Per-lamp colour order. Single-aspect heads use the catalogue colour.
     let colors: Vec<String> = if ph.nr_lamps == 1 {
@@ -378,7 +404,7 @@ fn build_head(
 
     // Dark housing box (closed; reads like esmini's open box from the front).
     let mut housing_mesh = BoxMesh::new_gd();
-    housing_mesh.set_size(Vector3::new(box_d as real, box_h as real, box_w as real));
+    housing_mesh.set_size(box_size);
     let mut hmat = StandardMaterial3D::new_gd();
     hmat.set_albedo(Color::from_rgba(0.07, 0.07, 0.08, 1.0));
     let hmat: Gd<Material> = hmat.upcast();
@@ -388,18 +414,28 @@ fn build_head(
     housing.set_mesh(&housing_mesh);
     head_node.add_child(&housing);
 
-    // Lamp quads, top (index 0) to bottom. Skip if no artwork is available.
+    // Lamp quads, index 0 first (top for vertical, +Z end for horizontal). Skip
+    // if no artwork is available.
     let mut lamps: Vec<Gd<MeshInstance3D>> = Vec::new();
     if let Some(tex) = tex {
         let lamp_mat = lamp_material(&tex, emission);
-        for i in 0..ph.nr_lamps {
-            let y_c = box_h * 0.5 - lamp_h * (i as f64 + 0.5);
-            let uv = uv_slice(i, ph.nr_lamps);
+        for i in 0..n {
+            // Offset of lamp i from centre along its layout axis (index 0 first).
+            let off = span * 0.5 - pitch * (i as f64 + 0.5);
+            // Vertical: index 0 (red) on top (+Y). Horizontal: index 0 (red) on
+            // the viewer's right. The viewer reads the lamp face (local +X)
+            // looking along -X with up +Y, so their right is -Z (Godot is
+            // right-handed); hence red -> -Z. This holds regardless of flip_facing
+            // (that only rotates the whole head; the viewer is always on the lit
+            // side), so red is always on the right.
+            let (y_c, z_c) = if lay_horizontal { (0.0, -off) } else { (off, 0.0) };
+            let uv = uv_slice(i, n);
             let Some(mesh) = build_lamp_quad_mesh(
                 front_x as real,
                 y_c as real,
-                lamp_half_w as real,
-                lamp_half_h as real,
+                z_c as real,
+                lamp_half_y as real,
+                lamp_half_z as real,
                 uv,
             ) else {
                 continue;
@@ -424,14 +460,7 @@ fn build_head(
     let mut colors = colors;
     colors.truncate(lamps.len());
 
-    (
-        head_node,
-        Head {
-            lamps,
-            colors,
-            pos: ph.pos,
-        },
-    )
+    (head_node, Head { lamps, colors })
 }
 
 /// Shared unshaded, emissive, alpha-blended material for the lamp quads.
@@ -448,23 +477,25 @@ fn lamp_material(tex: &Gd<ImageTexture>, emission: real) -> Gd<Material> {
     mat.upcast()
 }
 
-/// A single lamp quad facing local `+X`, centred laterally on `Z` and at height
-/// `y_c`. UVs come from [`uv_slice`]. Culling is disabled by the material, so
-/// winding is irrelevant; the normal is `+X` (unused while unshaded).
+/// A single lamp quad facing local `+X`, centred at (`y_c` up, `z_c` lateral)
+/// with half-extents `half_y` (up) and `half_z` (lateral). UVs come from
+/// [`uv_slice`]. Culling is disabled by the material, so winding is irrelevant;
+/// the normal is `+X` (unused while unshaded).
 fn build_lamp_quad_mesh(
     front_x: real,
     y_c: real,
-    half_w: real,
-    half_h: real,
+    z_c: real,
+    half_y: real,
+    half_z: real,
     uv: (f32, f32, f32, f32),
 ) -> Option<Gd<ArrayMesh>> {
     let (u0, v0, u1, v1) = uv; // v0 = top band edge, v1 = bottom band edge
     let n = Vector3::new(1.0, 0.0, 0.0);
     // Corners: bottom-left, bottom-right, top-right, top-left (lateral on Z).
-    let bl = Vector3::new(front_x, y_c - half_h, -half_w);
-    let br = Vector3::new(front_x, y_c - half_h, half_w);
-    let tr = Vector3::new(front_x, y_c + half_h, half_w);
-    let tl = Vector3::new(front_x, y_c + half_h, -half_w);
+    let bl = Vector3::new(front_x, y_c - half_y, z_c - half_z);
+    let br = Vector3::new(front_x, y_c - half_y, z_c + half_z);
+    let tr = Vector3::new(front_x, y_c + half_y, z_c + half_z);
+    let tl = Vector3::new(front_x, y_c + half_y, z_c - half_z);
     let uv_bl = Vector2::new(u0 as real, v1 as real);
     let uv_br = Vector2::new(u1 as real, v1 as real);
     let uv_tr = Vector2::new(u1 as real, v0 as real);
@@ -514,20 +545,6 @@ pub(crate) fn color_to_index(colors: &[String], want: &str) -> Option<usize> {
     colors.iter().position(|c| c == want)
 }
 
-/// `global_id` of the head nearest to `target` within `max_dist`, or `None`.
-pub(crate) fn nearest_head_id(
-    positions: &[(i64, Vector3)],
-    target: Vector3,
-    max_dist: real,
-) -> Option<i64> {
-    positions
-        .iter()
-        .map(|(id, p)| (*id, p.distance_to(target)))
-        .filter(|(_, d)| *d <= max_dist)
-        .min_by(|a, b| a.1.total_cmp(&b.1))
-        .map(|(id, _)| id)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -575,24 +592,6 @@ mod tests {
         assert_eq!(color_to_index(&colors, "blue"), None);
     }
 
-    #[test]
-    fn nearest_head_within_threshold() {
-        let pos = vec![
-            (10, Vector3::new(0.0, 0.0, 0.0)),
-            (20, Vector3::new(5.0, 0.0, 0.0)),
-            (30, Vector3::new(0.0, 0.0, 8.0)),
-        ];
-        // Closest to (4.6, 0, 0) is head 20.
-        assert_eq!(
-            nearest_head_id(&pos, Vector3::new(4.6, 0.0, 0.0), 3.0),
-            Some(20)
-        );
-        // Nothing within 1 m of a far-away point.
-        assert_eq!(
-            nearest_head_id(&pos, Vector3::new(100.0, 0.0, 0.0), 1.0),
-            None
-        );
-    }
 
     // End-to-end guard mirroring signal_catalog::classifies_real_map_signals:
     // multi_intersections.xodr has dynamic OpenDRIVE-country lights, so the

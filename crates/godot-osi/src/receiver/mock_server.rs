@@ -129,48 +129,70 @@ pub fn synthetic_ground_truth() -> Vec<osi3::GroundTruth> {
         .collect()
 }
 
-/// A small set of traffic lights for the demo, alternating like a real
-/// intersection: one "vehicle" head plus two complementary "pedestrian" heads.
-/// Each is a single lit bulb (`MODE_CONSTANT`) whose colour flips on a 6 s
-/// cycle. Positions are spread near the origin so a position-matching consumer
-/// can bind them to map signals; a consumer can also fall back to index order.
+// OSI TrafficLight.Classification enum values (osi_trafficlight.proto).
+const TL_COLOR_RED: i32 = 2;
+const TL_COLOR_YELLOW: i32 = 3;
+const TL_COLOR_GREEN: i32 = 4;
+const TL_MODE_OFF: i32 = 2;
+const TL_MODE_CONSTANT: i32 = 3;
+
+/// Demo traffic-light phases, emitted exactly like esmini's OSIReporter: **one
+/// `TrafficLight` message per bulb**, the active bulb `MODE_CONSTANT` and the
+/// rest `MODE_OFF`, each carrying a `source_reference`
+/// (`type="net.asam.opendrive"`, `identifier=["traffic_light_id:<id>"]`) so a
+/// consumer binds it to the map signal by id — no position matching.
+///
+/// The signal ids (1 vehicle 3-aspect, 2/3 pedestrian) are tuned to
+/// `fabriksgatan_traffic_lights.xodr`. Phases alternate like an intersection.
 fn synthetic_traffic_lights(t: f64) -> Vec<osi3::TrafficLight> {
-    // OSI TrafficLight.Classification enum values (osi_trafficlight.proto).
-    const COLOR_RED: i32 = 2;
-    const COLOR_GREEN: i32 = 4;
-    const MODE_CONSTANT: i32 = 3;
+    let cycle = t % 8.0;
+    let vehicle_active = if cycle < 3.5 {
+        TL_COLOR_GREEN
+    } else if cycle < 5.0 {
+        TL_COLOR_YELLOW
+    } else {
+        TL_COLOR_RED
+    };
+    // Pedestrians walk (green) only while vehicles are stopped (red).
+    let ped_active = if vehicle_active == TL_COLOR_RED {
+        TL_COLOR_GREEN
+    } else {
+        TL_COLOR_RED
+    };
 
-    let phase_a = (t % 6.0) < 3.0;
-    let vehicle = if phase_a { COLOR_RED } else { COLOR_GREEN };
-    let pedestrian = if phase_a { COLOR_GREEN } else { COLOR_RED };
+    let mut out = Vec::new();
+    push_signal_lamps(&mut out, 1, &[TL_COLOR_RED, TL_COLOR_YELLOW, TL_COLOR_GREEN], vehicle_active);
+    push_signal_lamps(&mut out, 2, &[TL_COLOR_RED, TL_COLOR_GREEN], ped_active);
+    push_signal_lamps(&mut out, 3, &[TL_COLOR_RED, TL_COLOR_GREEN], ped_active);
+    out
+}
 
-    // (id, color, x, y, z) — z is the mounting height (OSI Z-up).
-    let lights = [
-        (101u64, vehicle, 6.0, 0.0, 4.5),
-        (102u64, pedestrian, -6.0, 2.0, 4.5),
-        (103u64, pedestrian, 0.0, -6.0, 4.5),
-    ];
-
-    lights
-        .iter()
-        .map(|&(id, color, x, y, z)| osi3::TrafficLight {
-            id: Some(osi3::Identifier { value: Some(id) }),
-            base: Some(osi3::BaseStationary {
-                position: Some(osi3::Vector3d {
-                    x: Some(x),
-                    y: Some(y),
-                    z: Some(z),
-                }),
-                ..Default::default()
+/// Append one OSI `TrafficLight` per bulb of `signal_id`, lighting `active`.
+fn push_signal_lamps(out: &mut Vec<osi3::TrafficLight>, signal_id: i32, bulbs: &[i32], active: i32) {
+    for (i, &color) in bulbs.iter().enumerate() {
+        let mode = if color == active {
+            TL_MODE_CONSTANT
+        } else {
+            TL_MODE_OFF
+        };
+        out.push(osi3::TrafficLight {
+            // OSI id is a per-bulb unique value (not used for routing).
+            id: Some(osi3::Identifier {
+                value: Some(signal_id as u64 * 10 + i as u64),
             }),
             classification: Some(osi3::traffic_light::Classification {
                 color: Some(color),
-                mode: Some(MODE_CONSTANT),
+                mode: Some(mode),
                 ..Default::default()
             }),
+            source_reference: vec![osi3::ExternalReference {
+                r#type: Some("net.asam.opendrive".to_string()),
+                identifier: vec![format!("traffic_light_id:{signal_id}")],
+                ..Default::default()
+            }],
             ..Default::default()
-        })
-        .collect()
+        });
+    }
 }
 
 /// A short loop of HostVehicleData frames with advancing timestamps and a
@@ -460,24 +482,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn synthetic_frames_carry_cycling_traffic_lights() {
+    fn synthetic_frames_carry_per_bulb_traffic_lights() {
         let frames = synthetic_ground_truth();
         assert!(!frames.is_empty());
-        // Every frame should expose the three demo heads, each lit (not OFF).
+
+        // esmini-style: one message per bulb -> 3 (vehicle) + 2 + 2 = 7.
         for f in &frames {
-            assert_eq!(f.traffic_light.len(), 3, "expected 3 traffic lights");
+            assert_eq!(f.traffic_light.len(), 7, "3+2+2 bulbs");
+            // Each bulb carries the OpenDRIVE source_reference link.
             for tl in &f.traffic_light {
-                let c = tl.classification.as_ref().expect("classification");
-                assert_eq!(c.mode, Some(3), "lit bulbs use MODE_CONSTANT");
-                assert!(matches!(c.color, Some(2) | Some(4)), "red or green");
+                let sr = tl.source_reference.first().expect("source_reference");
+                assert_eq!(sr.r#type.as_deref(), Some("net.asam.opendrive"));
+                assert!(sr.identifier[0].starts_with("traffic_light_id:"));
+            }
+            // Per signal id, at most one bulb is lit (MODE_CONSTANT == 3).
+            for sig in 1..=3 {
+                let prefix = format!("traffic_light_id:{sig}");
+                let lit = f
+                    .traffic_light
+                    .iter()
+                    .filter(|tl| tl.source_reference[0].identifier[0] == prefix)
+                    .filter(|tl| tl.classification.as_ref().unwrap().mode == Some(3))
+                    .count();
+                assert!(lit <= 1, "signal {sig}: at most one lit bulb, got {lit}");
             }
         }
-        // The vehicle head's colour must change over the loop (it cycles).
-        let color_of = |f: &osi3::GroundTruth| f.traffic_light[0].classification.as_ref().unwrap().color;
-        let first = color_of(&frames[0]);
-        assert!(
-            frames.iter().any(|f| color_of(f) != first),
-            "vehicle light should change colour across the loop"
+
+        // Only the vehicle head (signal id 1) ever shows yellow (color 3); the
+        // pedestrian heads (2/3) never do — proves per-signal bulb sets differ.
+        let yellow_sigs: std::collections::HashSet<&str> = frames
+            .iter()
+            .flat_map(|f| f.traffic_light.iter())
+            .filter(|tl| {
+                let c = tl.classification.as_ref().unwrap();
+                c.color == Some(3) && c.mode == Some(3)
+            })
+            .map(|tl| tl.source_reference[0].identifier[0].as_str())
+            .collect();
+        assert_eq!(
+            yellow_sigs,
+            std::iter::once("traffic_light_id:1").collect(),
+            "yellow only on the vehicle signal"
         );
     }
 }
