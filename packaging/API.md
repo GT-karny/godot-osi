@@ -140,6 +140,56 @@ animal = orange** (others gray). Applies the OSI→Godot transform like the spaw
 
 ---
 
+## OsiHostVehicleState  *(extends Node)*
+
+Convenience helper for meter-cluster / ADAS HMIs. The converter emits raw typed
+snapshots; this node binds to it, caches the latest `OsiHostVehicleData` (and
+`OsiGroundTruth` for ego lights/lane), and exposes the common ego quantities a
+dashboard needs without digging through nested fields. Missing values degrade
+gracefully (floats → `NAN`, light/lane ints → `-1`).
+
+### Properties
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `scale` | float | `1.0` | Uniform scale forwarded to the coordinate mapping for `position`. |
+
+### Methods
+| Method | Returns | Description |
+|---|---|---|
+| `bind_converter(converter: OsiConverter)` | void | Connect to the converter's snapshot signals so the cached state updates each frame. |
+| `on_host_vehicle_data(snapshot: OsiHostVehicleData)` | void | Cache a new host snapshot. (Auto-called once bound.) |
+| `on_ground_truth(snapshot: OsiGroundTruth)` | void | Cache a new ground-truth snapshot (for ego light/lane). (Auto-called.) |
+| `is_ready()` | bool | Whether a host snapshot has been received. |
+| `speed_mps()` / `speed_kph()` | float | Ego speed magnitude (`NAN` if unavailable). |
+| `gear()` | int | Transmission gear (>0 forward, 0 neutral, <0 reverse; `0` if no powertrain). |
+| `ego_state()` | Dictionary | All common ego quantities in one dictionary (see below). |
+
+### `ego_state()` dictionary
+| Key | Type | Source / notes |
+|---|---|---|
+| `valid` | bool | `false` (and nothing else) until a host snapshot arrives. |
+| `speed_mps`, `speed_kph` | float | Velocity magnitude. |
+| `gear` | int | Transmission gear. |
+| `rpm` | float | First powertrain motor rpm. |
+| `throttle`, `brake`, `clutch` | float | Pedal positions `0..1`. |
+| `steering_angle` | float | Steering-wheel angle (rad). |
+| `curvature` | float | Driven path curvature (m⁻¹). |
+| `position` | Vector3 | Godot-space ego position; `has_position` flags validity. |
+| `heading` | float | Raw OSI yaw (rad). |
+| `indicator`, `brake_light`, `head_light` | int | Ego light state from GroundTruth (`-1` if absent). |
+| `assigned_lane_id` | int | Ego's assigned lane id (`-1` if absent). |
+
+### Signals
+| Signal | Description |
+|---|---|
+| `updated()` | Emitted after a new host snapshot is cached (fresh ego state). |
+
+> The ADAS-function-state list (`vehicle_automated_driving_function`) is not
+> surfaced here; read it off the `OsiHostVehicleData` snapshot directly if your
+> simulator provides it.
+
+---
+
 ## OsiRoadNetwork  *(extends Resource)*
 
 Loads an OpenDRIVE (`.xodr`) map and answers geometry / lane / object / signal /

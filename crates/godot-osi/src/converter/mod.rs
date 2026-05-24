@@ -19,6 +19,7 @@
 
 pub mod coords;
 pub mod generated;
+pub mod host_state;
 pub mod node;
 pub mod spawn_helper;
 pub mod visualizer;

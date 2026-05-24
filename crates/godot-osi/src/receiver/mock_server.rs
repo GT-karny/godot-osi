@@ -128,14 +128,49 @@ pub fn synthetic_ground_truth() -> Vec<osi3::GroundTruth> {
         .collect()
 }
 
-/// A short loop of HostVehicleData frames with advancing timestamps.
+/// A short loop of HostVehicleData frames with advancing timestamps and a
+/// plausible cruising ego (speed oscillates ~30–65 km/h, forward gear, matching
+/// rpm / throttle / steering) so a meter-cluster HMI driven off
+/// `OsiHostVehicleState` shows a moving needle without a real simulator.
 pub fn synthetic_host_vehicle_data() -> Vec<osi3::HostVehicleData> {
     (0..120)
-        .map(|i| osi3::HostVehicleData {
-            version: Some(version()),
-            timestamp: Some(timestamp(i / 20, (i % 20) as u32 * 50_000_000)),
-            host_vehicle_id: Some(osi3::Identifier { value: Some(1) }),
-            ..Default::default()
+        .map(|i| {
+            // Longitudinal speed in m/s, smoothly varying over the loop.
+            let speed = 13.0 + 5.0 * ((i as f64) * 0.05).sin();
+            osi3::HostVehicleData {
+                version: Some(version()),
+                timestamp: Some(timestamp(i / 20, (i % 20) as u32 * 50_000_000)),
+                host_vehicle_id: Some(osi3::Identifier { value: Some(1) }),
+                vehicle_motion: Some(osi3::host_vehicle_data::VehicleMotion {
+                    velocity: Some(osi3::Vector3d {
+                        x: Some(speed),
+                        y: Some(0.0),
+                        z: Some(0.0),
+                    }),
+                    current_curvature: Some(0.0),
+                    ..Default::default()
+                }),
+                vehicle_powertrain: Some(osi3::host_vehicle_data::VehiclePowertrain {
+                    gear_transmission: Some(4),
+                    pedal_position_acceleration: Some(0.25),
+                    pedal_position_clutch: Some(0.0),
+                    motor: vec![osi3::host_vehicle_data::vehicle_powertrain::Motor {
+                        rpm: Some(900.0 + speed * 110.0),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                vehicle_brake_system: Some(osi3::host_vehicle_data::VehicleBrakeSystem {
+                    pedal_position_brake: Some(0.0),
+                }),
+                vehicle_steering: Some(osi3::host_vehicle_data::VehicleSteering {
+                    vehicle_steering_wheel: Some(osi3::VehicleSteeringWheel {
+                        angle: Some(0.05 * ((i as f64) * 0.05).cos()),
+                        ..Default::default()
+                    }),
+                }),
+                ..Default::default()
+            }
         })
         .collect()
 }

@@ -28,9 +28,10 @@ toolchain or build step is required.
    Initialize godot-rust (API v4.6.stable.official, …)
    ```
    The classes `OsiReceiver`, `OsiConverter`, `OsiMockServer`,
-   `OsiMovingObjectSpawner`, `OsiMovingObjectVisualizer` — plus the OpenDRIVE
-   road classes `OsiRoadNetwork` and `OsiRoadNetworkVisualizer` — are now
-   available in GDScript and the "Create Node" dialog.
+   `OsiMovingObjectSpawner`, `OsiMovingObjectVisualizer`, `OsiHostVehicleState`
+   — plus the OpenDRIVE road classes `OsiRoadNetwork` and
+   `OsiRoadNetworkVisualizer` — are now available in GDScript and the
+   "Create Node" dialog.
 
 There is no `plugin.cfg` / EditorPlugin — nothing to enable under
 *Project Settings → Plugins*. Loading the GDExtension is all that is needed.
@@ -105,6 +106,28 @@ own meshes as children) or **`OsiMovingObjectVisualizer`** (colored boxes sized 
 OSI dimension: vehicle = blue, pedestrian = green, animal = orange) and bind it to
 the converter with `bind_converter(converter)`.
 
+## Dashboard / HMI (ego vehicle state)
+
+For a meter cluster or ADAS display, `OsiHostVehicleState` gives you the common
+ego quantities (speed, gear, rpm, pedals, steering, lights) in one call instead
+of walking the nested `OsiHostVehicleData` snapshot:
+
+```gdscript
+var ego := OsiHostVehicleState.new()
+add_child(ego)
+ego.bind_converter(converter)        # same converter as above
+
+func _process(_dt):
+    if ego.is_ready():
+        var s := ego.ego_state()
+        $SpeedLabel.text = "%d km/h" % int(s["speed_kph"])
+        $GearLabel.text = "DNR"[clampi(s["gear"] + 1, 0, 2)]  # toy example
+```
+
+The bundled `OsiMockServer` streams a synthetic cruising ego (~30–65 km/h in a
+forward gear), so the cluster moves without a real simulator. See
+[API.md](API.md#osihostvehiclestate--extends-node) for every field.
+
 ## OpenDRIVE roads
 
 Independently of the OSI stream, the addon can load an **OpenDRIVE** (`.xodr`)
@@ -134,8 +157,8 @@ instead of synthesizing data.
 ## Reference
 
 - [API.md](API.md) — the node classes (`OsiReceiver`, `OsiConverter`,
-  `OsiMockServer`, `OsiMovingObjectSpawner`, `OsiMovingObjectVisualizer`):
-  properties, methods, signals, constants.
+  `OsiMockServer`, `OsiMovingObjectSpawner`, `OsiMovingObjectVisualizer`,
+  `OsiHostVehicleState`): properties, methods, signals, constants.
 - [ROADS.md](ROADS.md) — the OpenDRIVE road API (`OsiRoadNetwork`,
   `OsiRoadNetworkVisualizer`): methods, returned dictionary shapes, enum tables.
 - [SCHEMA.md](SCHEMA.md) — every generated `Osi*` `Resource` class and its fields.

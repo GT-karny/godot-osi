@@ -19,6 +19,7 @@ const TIMEOUT_S := 15.0
 var server
 var receiver
 var converter
+var ego
 var gt_converted := 0
 var hvd_converted := 0
 var last_gt = null
@@ -46,6 +47,11 @@ func _initialize() -> void:
 	root.add_child(converter)
 	converter.ground_truth_converted.connect(_on_gt)
 	converter.host_vehicle_data_converted.connect(_on_hvd)
+
+	# HMI convenience helper: caches host/ground-truth and exposes ego_state().
+	ego = OsiHostVehicleState.new()
+	root.add_child(ego)
+	ego.bind_converter(converter)
 
 	# The wiring under test: hand the converter the receiver's shared bus.
 	converter.connect_source(receiver)
@@ -98,6 +104,25 @@ func _validate() -> bool:
 		printerr("[integration] FAIL: non-finite converted position")
 		return false
 	print("[integration] ok  obj0 converted pos=(%f,%f,%f)" % [pos.x, pos.y, pos.z])
+
+	# Ego-state convenience helper (meter-cluster HMI input).
+	if not ego.is_ready():
+		printerr("[integration] FAIL: OsiHostVehicleState not ready")
+		return false
+	var st: Dictionary = ego.ego_state()
+	print("[integration] ego_state=%s" % str(st))
+	if not st.get("valid", false):
+		printerr("[integration] FAIL: ego_state invalid")
+		return false
+	# The synthetic host stream cruises at ~30-65 km/h in a forward gear.
+	var kph: float = st["speed_kph"]
+	if not (is_finite(kph) and kph > 5.0 and kph < 100.0):
+		printerr("[integration] FAIL: implausible ego speed %f km/h" % kph)
+		return false
+	if int(st["gear"]) <= 0:
+		printerr("[integration] FAIL: expected a forward gear, got %d" % int(st["gear"]))
+		return false
+	print("[integration] ok  ego speed=%.1f km/h gear=%d rpm=%.0f" % [kph, int(st["gear"]), st["rpm"]])
 	return true
 
 func _teardown() -> void:
