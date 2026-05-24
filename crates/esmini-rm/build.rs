@@ -53,7 +53,7 @@ fn main() {
     for lib in ["RoadManager", "CommonMini", "pugixml_lib", "fmt"] {
         let dir = find_lib_dir(&build_dir, lib).unwrap_or_else(|| {
             panic!(
-                "static lib '{lib}.lib' not found under {}",
+                "static lib for '{lib}' (e.g. {lib}.lib or lib{lib}.a) not found under {}",
                 build_dir.display()
             )
         });
@@ -136,9 +136,11 @@ fn ensure_fmt_submodule(esmini: &Path) {
     }
 }
 
-/// Recursively search `root` for a directory directly containing `<name>.lib`.
+/// Recursively search `root` for a directory directly containing the static
+/// library for `name`. CMake names it `<name>.lib` under MSVC and `lib<name>.a`
+/// on Unix (Linux/macOS), so accept either form.
 fn find_lib_dir(root: &Path, name: &str) -> Option<PathBuf> {
-    let target = format!("{name}.lib");
+    let candidates = [format!("{name}.lib"), format!("lib{name}.a")];
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -148,7 +150,11 @@ fn find_lib_dir(root: &Path, name: &str) -> Option<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);
-            } else if path.file_name().and_then(|f| f.to_str()) == Some(target.as_str()) {
+            } else if path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .is_some_and(|f| candidates.iter().any(|c| c == f))
+            {
                 return Some(dir);
             }
         }
